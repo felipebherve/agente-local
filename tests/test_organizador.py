@@ -1,6 +1,7 @@
 import os
 import time
 from datetime import datetime
+from pathlib import Path
 
 from agente import organizador
 
@@ -18,7 +19,7 @@ def test_varrer_ignora_pastas_e_pega_tamanho_e_extensao(tmp_path):
     _criar(tmp_path / "sub" / "doc.txt", b"abcdef")
 
     arquivos = organizador.varrer(tmp_path)
-    nomes = {a.caminho.split("/")[-1]: a for a in arquivos}
+    nomes = {Path(a.caminho).name: a for a in arquivos}
     assert set(nomes) == {"foto.jpg", "doc.txt"}
     assert nomes["foto.jpg"].tamanho == 3
     assert nomes["foto.jpg"].extensao == ".jpg"
@@ -33,7 +34,7 @@ def test_duplicados_por_conteudo_identico(tmp_path):
     arquivos = organizador.varrer(tmp_path)
     grupos = organizador.duplicados(arquivos)
     assert len(grupos) == 1
-    assert {a.caminho.split("/")[-1] for a in grupos[0]} == {"a.txt", "b.txt"}
+    assert {Path(a.caminho).name for a in grupos[0]} == {"a.txt", "b.txt"}
 
 
 def test_tamanho_igual_mas_conteudo_diferente_nao_e_duplicado(tmp_path):
@@ -53,7 +54,7 @@ def test_duplicado_em_arquivo_maior_que_o_pedaco_usa_hash_completo(tmp_path, mon
     arquivos = organizador.varrer(tmp_path)
     grupos = organizador.duplicados(arquivos)
     assert len(grupos) == 1
-    assert {a.caminho.split("/")[-1] for a in grupos[0]} == {"a.txt", "b.txt"}
+    assert {Path(a.caminho).name for a in grupos[0]} == {"a.txt", "b.txt"}
 
 
 def test_resumir_conta_extensoes_e_subpastas(tmp_path):

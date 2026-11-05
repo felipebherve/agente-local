@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -62,6 +63,7 @@ def test_omniroute_padrao_e_personalizado(tmp_path: Path, monkeypatch):
     assert cfg2.omniroute.modelos == ("a/b", "c/d")
 
 
+@pytest.mark.skipif(os.name == "nt", reason="no Windows o HD é achado pela letra do disco")
 def test_achar_hd_encontra_pela_pasta_filha(tmp_path: Path, monkeypatch):
     from agente import config as config_mod
 
