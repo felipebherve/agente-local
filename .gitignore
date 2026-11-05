@@ -1,0 +1,31 @@
+.venv/
+__pycache__/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+logs/
+dados/
+build/
+dist/
+# dados pessoais e segredos: nunca versionar
+.env
+.env.*
+*.env
+secrets.*
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+*.sqlite
+*.sqlite-*
+*.db
+*.jsonl
+*.log
+*.wav
+*.mp3
+capturas/
+prints/
+
+# config pessoal de cada um (gerada pelo agente init)
+config.yaml

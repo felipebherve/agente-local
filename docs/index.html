@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agente-local · free local AI helper for Claude Code</title>
+<meta name="description" content="A free AI helper that runs on your own GPU and does the mechanical work for Claude Code, so you spend fewer tokens. Linux and Windows.">
+<meta property="og:title" content="agente-local">
+<meta property="og:description" content="Free local AI helper for Claude Code: tests, git, PRs, summaries and code review on your own GPU.">
+<meta property="og:image" content="https://felipebherve.github.io/agente-local/painel.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232dd4bf'/%3E%3Cpath d='M18 43l14-22 14 22' stroke='%230a0e14' stroke-width='6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e14; --surface: #111826; --surface-2: #0d1420; --borda: #1f2937;
+  --texto: #e6e9ef; --texto-2: #9aa4b2; --acento: #2dd4bf;
+  --acento-suave: rgba(45,212,191,.12); --acento-borda: rgba(45,212,191,.35);
+  --azul: #6b93ff; --laranja: #f0a35e; --verde: #4ade80;
+  --raio: 14px; --largura: 1040px;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f7f8fa; --surface: #ffffff; --surface-2: #f0f2f5; --borda: #e2e6ec;
+    --texto: #111827; --texto-2: #4b5563; --acento: #0f9488;
+    --acento-suave: rgba(15,148,136,.1); --acento-borda: rgba(15,148,136,.35);
+    --azul: #3b6ef5; --laranja: #c2622d; --verde: #16a34a;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0a0e14; --surface: #111826; --surface-2: #0d1420; --borda: #1f2937;
+  --texto: #e6e9ef; --texto-2: #9aa4b2; --acento: #2dd4bf;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--texto); line-height: 1.6;
+  font-family: Inter, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased;
+  background-image: radial-gradient(circle at 1px 1px, rgba(127,127,127,.08) 1px, transparent 0);
+  background-size: 28px 28px;
+}
+a { color: var(--acento); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre, .mono { font-family: var(--mono); }
+.wrap { max-width: var(--largura); margin: 0 auto; padding: 0 20px; }
+[data-l="pt"] { display: none; }
+html[lang="pt-BR"] [data-l="pt"] { display: revert; }
+html[lang="pt-BR"] [data-l="en"] { display: none; }
+
+header.topo { position: sticky; top: 0; z-index: 5; backdrop-filter: blur(8px); background: color-mix(in srgb, var(--bg) 85%, transparent); border-bottom: 1px solid var(--borda); }
+header.topo .wrap { display: flex; align-items: center; gap: 18px; height: 60px; }
+.logo { font-family: var(--mono); font-weight: 500; color: var(--texto); display: flex; align-items: center; gap: 10px; }
+.logo svg { width: 24px; height: 24px; }
+nav.menu { display: flex; gap: 18px; margin-left: auto; font-size: 14px; }
+nav.menu a { color: var(--texto-2); }
+.btn-lang { border: 1px solid var(--borda); background: transparent; color: var(--texto); border-radius: 8px; padding: 4px 10px; font: 500 13px var(--mono); cursor: pointer; }
+
+.hero { padding-top: 72px; padding-bottom: 40px; }
+.tag { font-family: var(--mono); color: var(--acento); font-size: 14px; }
+h1 { font-size: clamp(32px, 6vw, 52px); line-height: 1.1; margin: 10px 0 16px; letter-spacing: -.02em; }
+.lead { font-size: 18px; color: var(--texto-2); max-width: 680px; }
+.acoes { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 10px; font-weight: 600; border: 1px solid var(--acento-borda); }
+.btn.primario { background: var(--acento); color: #0a0e14; border-color: var(--acento); }
+.btn:hover { text-decoration: none; filter: brightness(1.08); }
+.numero { margin-top: 30px; display: inline-flex; gap: 10px; align-items: baseline; padding: 10px 16px; border-radius: 10px; background: var(--acento-suave); border: 1px solid var(--acento-borda); }
+.numero b { font: 600 22px var(--mono); color: var(--acento); }
+
+section { padding: 48px 0; }
+h2 { font-size: 28px; margin: 0 0 6px; letter-spacing: -.01em; }
+h2 + .sub { color: var(--texto-2); margin: 0 0 26px; }
+.cartao { background: var(--surface); border: 1px solid var(--borda); border-radius: var(--raio); padding: 20px; }
+.grade { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.cartao h3 { margin: 0 0 6px; font-size: 16px; }
+.cartao p { margin: 0; color: var(--texto-2); font-size: 14px; }
+
+.escada { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; position: relative; }
+.degrau { background: var(--surface); border: 1px solid var(--borda); border-radius: 12px; padding: 16px; position: relative; }
+.degrau .n { font: 500 12px var(--mono); color: var(--texto-2); }
+.degrau h3 { margin: 4px 0; font-size: 16px; }
+.degrau p { margin: 0; font-size: 13px; color: var(--texto-2); }
+.degrau .custo { margin-top: 10px; font: 500 12px var(--mono); }
+.degrau:not(:last-child)::after { content: "→"; position: absolute; right: -10px; top: 50%; transform: translate(50%, -50%); color: var(--texto-2); z-index: 1; }
+.c-cmd { color: var(--texto-2); } .c-local { color: var(--verde); } .c-nuvem { color: var(--azul); } .c-claude { color: var(--laranja); }
+
+figure { margin: 26px 0 0; }
+figure img { width: 100%; border-radius: 12px; border: 1px solid var(--borda); display: block; }
+figcaption { color: var(--texto-2); font-size: 13px; margin-top: 8px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--surface); border: 1px solid var(--borda); border-radius: 12px; overflow: hidden; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--borda); vertical-align: top; }
+th { color: var(--texto-2); font-weight: 500; font-size: 13px; background: var(--surface-2); }
+tr:last-child td { border-bottom: 0; }
+.tabela-rola { overflow-x: auto; }
+
+.abas { display: flex; gap: 6px; margin-bottom: -1px; }
+.abas button { background: transparent; border: 1px solid transparent; border-bottom: 0; color: var(--texto-2); padding: 8px 16px; border-radius: 10px 10px 0 0; font: 500 14px Inter, sans-serif; cursor: pointer; }
+.abas button[aria-selected="true"] { background: var(--surface); border-color: var(--borda); color: var(--texto); }
+.painel-aba { display: none; } .painel-aba.ativa { display: block; }
+.painel-aba { background: var(--surface); border: 1px solid var(--borda); border-radius: 0 12px 12px 12px; padding: 20px; }
+pre { background: var(--surface-2); border: 1px solid var(--borda); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font-size: 13px; margin: 10px 0; position: relative; }
+.copiar { position: absolute; top: 8px; right: 8px; border: 1px solid var(--borda); background: var(--surface); color: var(--texto-2); border-radius: 6px; font: 12px var(--mono); padding: 2px 8px; cursor: pointer; }
+ol.passos { padding-left: 20px; margin: 10px 0 0; } ol.passos li { margin-bottom: 8px; }
+.nota { font-size: 14px; color: var(--texto-2); }
+details { background: var(--surface); border: 1px solid var(--borda); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px; }
+details summary { cursor: pointer; font-weight: 600; }
+details p { color: var(--texto-2); margin: 10px 0 0; }
+footer { border-top: 1px solid var(--borda); padding: 30px 0 50px; color: var(--texto-2); font-size: 13px; }
+
+@media (max-width: 760px) {
+  nav.menu { display: none; }
+  .escada { grid-template-columns: 1fr; }
+  .degrau:not(:last-child)::after { content: "↓"; right: 50%; top: auto; bottom: -14px; transform: translateX(50%); }
+  .hero { padding-top: 44px; }
+}
+</style>
+</head>
+<body>
+<header class="topo">
+  <div class="wrap">
+    <a class="logo" href="#"><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="var(--acento)"/><path d="M18 43l14-22 14 22" stroke="var(--bg)" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>agente-local</a>
+    <nav class="menu">
+      <a href="#how"><span data-l="en">How it works</span><span data-l="pt">Como funciona</span></a>
+      <a href="#install"><span data-l="en">Install</span><span data-l="pt">Instalar</span></a>
+      <a href="#accounts"><span data-l="en">Accounts</span><span data-l="pt">Contas</span></a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/felipebherve/agente-local">GitHub</a>
+    </nav>
+    <button class="btn-lang" id="btnLang" aria-label="Português / English">PT</button>
+  </div>
+</header>
+
+<main>
+<div class="hero wrap">
+  <div class="tag">// ollama + mcp + claude code</div>
+  <h1 data-l="en">Let your GPU do the boring part.<br>Save Claude for the thinking.</h1>
+  <h1 data-l="pt">Deixe sua placa de vídeo fazer o trabalho chato.<br>Guarde o Claude para pensar.</h1>
+  <p class="lead" data-l="en">agente-local is a free AI helper that runs on your own computer and does the mechanical work for Claude Code: tests, git, pull requests, summaries, code review, project search and the browser. Claude gets a short answer instead of thousands of lines.</p>
+  <p class="lead" data-l="pt">O agente-local é um ajudante de IA gratuito que roda no seu computador e faz o trabalho mecânico do Claude Code: testes, git, pull requests, resumos, revisão de código, busca nos projetos e navegador. O Claude recebe uma resposta curta em vez de milhares de linhas.</p>
+  <div class="acoes">
+    <a class="btn primario" href="#install"><span data-l="en">Install it</span><span data-l="pt">Instalar</span></a>
+    <a class="btn" href="https://github.com/felipebherve/agente-local"><span data-l="en">View on GitHub</span><span data-l="pt">Ver no GitHub</span></a>
+  </div>
+  <div class="numero"><b>370,000+</b><span data-l="en">Claude tokens saved on the author's PC</span><span data-l="pt">tokens do Claude poupados no PC do autor</span></div>
+</div>
+
+<section id="how"><div class="wrap">
+  <h2 data-l="en">How it works</h2><h2 data-l="pt">Como funciona</h2>
+  <p class="sub" data-l="en">Every request climbs a cost ladder and stops at the first step that solves it.</p>
+  <p class="sub" data-l="pt">Cada pedido sobe uma escada de custo e para no primeiro degrau que resolve.</p>
+  <div class="escada">
+    <div class="degrau"><div class="n">01</div><h3 data-l="en">Direct command</h3><h3 data-l="pt">Comando direto</h3><p data-l="en">Tests, git, review and search run as plain programs.</p><p data-l="pt">Testes, git, revisão e busca rodam como programas comuns.</p><div class="custo c-cmd" data-l="en">free · instant</div><div class="custo c-cmd" data-l="pt">grátis · na hora</div></div>
+    <div class="degrau"><div class="n">02</div><h3 data-l="en">Local model</h3><h3 data-l="pt">Modelo local</h3><p data-l="en">Ollama on your GPU summarizes, writes commits and answers simple questions.</p><p data-l="pt">O Ollama na sua placa resume, escreve commits e responde o simples.</p><div class="custo c-local" data-l="en">free · private</div><div class="custo c-local" data-l="pt">grátis · privado</div></div>
+    <div class="degrau"><div class="n">03</div><h3 data-l="en">Free cloud AI</h3><h3 data-l="pt">IA grátis na nuvem</h3><p data-l="en">Optional: OmniRoute with your own free provider accounts.</p><p data-l="pt">Opcional: OmniRoute com suas contas grátis de provedores.</p><div class="custo c-nuvem" data-l="en">free · online</div><div class="custo c-nuvem" data-l="pt">grátis · online</div></div>
+    <div class="degrau"><div class="n">04</div><h3>Claude</h3><p data-l="en">Only what really needs it: planning, real code changes, hard problems.</p><p data-l="pt">Só o que precisa dele: planejar, mudar código de verdade, problemas difíceis.</p><div class="custo c-claude" data-l="en">paid · best</div><div class="custo c-claude" data-l="pt">pago · o melhor</div></div>
+  </div>
+
+  <div class="grade" style="margin-top:22px">
+    <div class="cartao"><h3>Maestro</h3><p data-l="en">Reads each request and sends it to the right agent.</p><p data-l="pt">Lê cada pedido e manda para o agente certo.</p></div>
+    <div class="cartao"><h3><span data-l="en">Gatekeeper</span><span data-l="pt">Porteiro</span></h3><p data-l="en">Answers the simple stuff on your PC or free cloud AI.</p><p data-l="pt">Responde o simples no PC ou na IA grátis.</p></div>
+    <div class="cartao"><h3><span data-l="en">Memory</span><span data-l="pt">Memória</span></h3><p data-l="en">Indexes your projects and hands Claude only the relevant snippets.</p><p data-l="pt">Indexa os projetos e entrega ao Claude só os trechos que importam.</p></div>
+    <div class="cartao"><h3><span data-l="en">Reviewer</span><span data-l="pt">Revisor</span></h3><p data-l="en">Lint, types and tests; blocks commits with passwords or conflicts.</p><p data-l="pt">Lint, tipos e testes; trava commit com senha ou conflito.</p></div>
+    <div class="cartao"><h3><span data-l="en">Arm</span><span data-l="pt">Braço</span></h3><p data-l="en">Drives the browser and screen, asking before anything risky.</p><p data-l="pt">Controla o navegador e a tela, e pergunta antes do que for arriscado.</p></div>
+  </div>
+
+  <figure>
+    <img src="painel.png" alt="Agent panel: PC usage, agent switches and chat" loading="lazy">
+    <figcaption data-l="en">The panel: PC usage, Ollama and OmniRoute status, agent switches, chat with the route of each answer, history, savings and a Settings tab to sign in to your accounts and change the voice shortcut.</figcaption>
+    <figcaption data-l="pt">O painel: uso do PC, Ollama e OmniRoute, chaves dos agentes, conversa com o caminho de cada resposta, histórico, economia e a aba Configurações para entrar nas contas e trocar o atalho de voz.</figcaption>
+  </figure>
+</div></section>
+
+<section id="requirements"><div class="wrap">
+  <h2 data-l="en">What you need</h2><h2 data-l="pt">O que precisa</h2>
+  <p class="sub" data-l="en">The installer takes care of most of it.</p><p class="sub" data-l="pt">O instalador cuida da maior parte.</p>
+  <div class="tabela-rola"><table>
+    <thead><tr><th></th><th data-l="en">Minimum</th><th data-l="pt">Mínimo</th><th data-l="en">Recommended</th><th data-l="pt">Recomendado</th></tr></thead>
+    <tbody>
+      <tr><td data-l="en">System</td><td data-l="pt">Sistema</td><td>Linux · Windows 10/11</td><td>Ubuntu 24.04+ · Windows 11</td></tr>
+      <tr><td data-l="en">GPU</td><td data-l="pt">Placa de vídeo</td><td data-l="en">none (CPU, slower)</td><td data-l="pt">nenhuma (processador, mais lento)</td><td>NVIDIA 8–12 GB</td></tr>
+      <tr><td data-l="en">RAM</td><td data-l="pt">Memória</td><td>8 GB</td><td>16 GB</td></tr>
+      <tr><td data-l="en">Software</td><td data-l="pt">Programas</td><td>Python 3.10+, Git, Ollama, Claude Code</td><td data-l="en">+ Node.js (OmniRoute), Google Chrome (browser tools), GitHub CLI (PRs)</td><td data-l="pt">+ Node.js (OmniRoute), Google Chrome (navegador), GitHub CLI (PRs)</td></tr>
+    </tbody>
+  </table></div>
+  <p class="nota" data-l="en">Models are picked for your GPU: 12 GB+ gets qwen3:8b, qwen2.5-coder:7b and qwen2.5vl:7b; 8 GB drops vision; 6 GB uses qwen3:4b; CPU-only uses qwen3:1.7b.</p>
+  <p class="nota" data-l="pt">Os modelos são escolhidos pela sua placa: 12 GB ou mais usa qwen3:8b, qwen2.5-coder:7b e qwen2.5vl:7b; 8 GB fica sem visão; 6 GB usa qwen3:4b; só processador usa qwen3:1.7b.</p>
+</div></section>
+
+<section id="install"><div class="wrap">
+  <h2 data-l="en">Install</h2><h2 data-l="pt">Instalar</h2>
+  <p class="sub" data-l="en">One command. It asks before each optional step.</p><p class="sub" data-l="pt">Um comando. Ele pergunta antes de cada passo opcional.</p>
+  <div class="abas" role="tablist">
+    <button role="tab" aria-selected="true" data-os="linux">Linux</button>
+    <button role="tab" aria-selected="false" data-os="windows">Windows</button>
+  </div>
+  <div class="painel-aba ativa" id="os-linux">
+    <pre><code>git clone https://github.com/felipebherve/agente-local.git
+cd agente-local
+./install.sh</code></pre>
+    <p class="nota" data-l="en">Add <code>--voz</code> for the voice shortcut (Ctrl+Alt+F) or <code>--sim</code> to accept every default.</p>
+    <p class="nota" data-l="pt">Use <code>--voz</code> para o atalho de voz (Ctrl+Alt+F) ou <code>--sim</code> para aceitar tudo.</p>
+  </div>
+  <div class="painel-aba" id="os-windows">
+    <pre><code>git clone https://github.com/felipebherve/agente-local.git
+cd agente-local
+powershell -ExecutionPolicy Bypass -File .\install.ps1</code></pre>
+    <p class="nota" data-l="en">No Git yet? Download the ZIP from GitHub, extract it and run the same last line inside the folder. Add <code>-Voz</code> or <code>-Sim</code>.</p>
+    <p class="nota" data-l="pt">Ainda não tem Git? Baixe o ZIP no GitHub, extraia e rode a última linha dentro da pasta. Use <code>-Voz</code> ou <code>-Sim</code>.</p>
+  </div>
+  <h3 style="margin-top:26px" data-l="en">What the installer does</h3><h3 style="margin-top:26px" data-l="pt">O que o instalador faz</h3>
+  <ol class="passos" data-l="en">
+    <li>Checks Python and Git (on Windows, installs them with <code>winget</code> if missing).</li>
+    <li>Installs <a href="https://ollama.com">Ollama</a> if missing.</li>
+    <li>Creates the agent's own Python environment in <code>.venv</code>.</li>
+    <li>Offers to install OmniRoute (optional).</li>
+    <li>Runs <code>agente init</code>: detects your GPU, downloads the right models, writes <code>config.yaml</code> and registers the agent in Claude Code and Claude Desktop.</li>
+    <li>Creates the <b>Agente local</b> shortcut, which opens the panel in your browser.</li>
+  </ol>
+  <ol class="passos" data-l="pt">
+    <li>Confere Python e Git (no Windows, instala pelo <code>winget</code> se faltar).</li>
+    <li>Instala o <a href="https://ollama.com">Ollama</a> se faltar.</li>
+    <li>Cria o ambiente Python do agente em <code>.venv</code>.</li>
+    <li>Oferece instalar o OmniRoute (opcional).</li>
+    <li>Roda o <code>agente init</code>: vê sua placa, baixa os modelos certos, escreve o <code>config.yaml</code> e registra o agente no Claude Code e no Claude Desktop.</li>
+    <li>Cria o atalho <b>Agente local</b>, que abre o painel no navegador.</li>
+  </ol>
+  <p class="nota" data-l="en">Something wrong? Run <code>agente doctor</code>: it checks every piece and tells you what to fix.</p>
+  <p class="nota" data-l="pt">Deu algo errado? Rode <code>agente doctor</code>: ele confere cada peça e diz o que corrigir.</p>
+</div></section>
+
+<section id="accounts"><div class="wrap">
+  <h2 data-l="en">Connect your accounts</h2><h2 data-l="pt">Conectar suas contas</h2>
+  <p class="sub" data-l="en">The agent never stores a password. It uses the logins you already have.</p>
+  <p class="sub" data-l="pt">O agente nunca guarda senha. Ele usa os logins que você já tem.</p>
+  <div class="grade">
+    <div class="cartao"><h3>Claude</h3><p data-l="en">Sign in to Claude Code as usual. The agent is an MCP tool inside it; <code>agente init</code> registers it.</p><p data-l="pt">Entre no Claude Code como sempre. O agente é uma ferramenta MCP dele; o <code>agente init</code> registra.</p></div>
+    <div class="cartao"><h3>GitHub</h3><p data-l="en">Run <code>gh auth login</code> once. The agent uses it to push and open pull requests.</p><p data-l="pt">Rode <code>gh auth login</code> uma vez. O agente usa isso para push e pull requests.</p></div>
+    <div class="cartao"><h3 data-l="en">Browser</h3><h3 data-l="pt">Navegador</h3><p data-l="en">The Arm uses its own Chrome profile. Sign in to sites there once; logins stay in Chrome.</p><p data-l="pt">O Braço usa um perfil próprio do Chrome. Entre nos sites por ele uma vez; os logins ficam no Chrome.</p></div>
+  </div>
+
+  <h3 style="margin-top:30px" data-l="en">Connect your OmniRoute (free cloud AI, optional)</h3>
+  <h3 style="margin-top:30px" data-l="pt">Conectar o seu OmniRoute (IA grátis na nuvem, opcional)</h3>
+  <ol class="passos" data-l="en">
+    <li>Install and start it: <code>npm install -g omniroute</code> then <code>omniroute</code>.</li>
+    <li>Open <code>http://localhost:20128</code>, go to <b>Providers</b> and connect a provider with your own free account (for example Groq, Gemini or NVIDIA NIM).</li>
+    <li>In <code>config.yaml</code>, set <code>omniroute.ligado: true</code> and list the models in order under <code>omniroute.modelos</code>:</li>
+  </ol>
+  <ol class="passos" data-l="pt">
+    <li>Instale e ligue: <code>npm install -g omniroute</code> e depois <code>omniroute</code>.</li>
+    <li>Abra <code>http://localhost:20128</code>, vá em <b>Providers</b> e conecte um provedor com a sua conta grátis (por exemplo Groq, Gemini ou NVIDIA NIM).</li>
+    <li>No <code>config.yaml</code>, coloque <code>omniroute.ligado: true</code> e liste os modelos em ordem em <code>omniroute.modelos</code>:</li>
+  </ol>
+  <pre><code>omniroute:
+  ligado: true
+  url: http://127.0.0.1:20128/v1
+  modelos:
+    - groq/llama-3.3-70b-versatile
+    - gemini/gemini-2.5-flash</code></pre>
+  <p class="nota" data-l="en">The agent tries the first model, then the next. If OmniRoute is off, it skips straight to Claude. You are responsible for following each provider's terms; prefer providers with an official free tier.</p>
+  <p class="nota" data-l="pt">O agente tenta o primeiro modelo, depois o próximo. Se o OmniRoute estiver desligado, ele pula direto para o Claude. Cada pessoa é responsável por seguir os termos dos provedores; prefira os que têm plano grátis oficial.</p>
+</div></section>
+
+<section id="use"><div class="wrap">
+  <h2 data-l="en">Using it</h2><h2 data-l="pt">Usar</h2>
+  <p class="sub" data-l="en">Nothing special: Claude Code calls the agent on its own. Try asking:</p>
+  <p class="sub" data-l="pt">Nada especial: o Claude Code chama o agente sozinho. Experimente pedir:</p>
+  <div class="grade">
+    <div class="cartao mono" data-l="en">"run the tests"<br>"commit this"<br>"open a draft PR"</div>
+    <div class="cartao mono" data-l="pt">"roda os testes"<br>"faz o commit"<br>"abre um PR em rascunho"</div>
+    <div class="cartao mono" data-l="en">"what changed here?"<br>"where is the login handled?"</div>
+    <div class="cartao mono" data-l="pt">"o que mudou aqui?"<br>"onde fica o login?"</div>
+    <div class="cartao mono" data-l="en">"review the project before I ship"<br>"how much did you save?"</div>
+    <div class="cartao mono" data-l="pt">"revisa o projeto antes de publicar"<br>"quanto você poupou?"</div>
+  </div>
+</div></section>
+
+<section id="safety"><div class="wrap">
+  <h2 data-l="en">Safety and privacy</h2><h2 data-l="pt">Segurança e privacidade</h2>
+  <div class="grade" style="margin-top:20px">
+    <div class="cartao"><h3 data-l="en">Only where you allow</h3><h3 data-l="pt">Só onde você deixa</h3><p data-l="en">Reads only the folders and runs only the commands listed in <code>config.yaml</code>.</p><p data-l="pt">Só lê as pastas e só roda os comandos listados no <code>config.yaml</code>.</p></div>
+    <div class="cartao"><h3 data-l="en">Asks first</h3><h3 data-l="pt">Pergunta antes</h3><p data-l="en">Confirmation before submit, login, pay, buy, delete or password fields. Turn off the Arm in the panel to stop it at once.</p><p data-l="pt">Confirmação antes de enviar, entrar, pagar, comprar, apagar ou campo de senha. Desligue o Braço no painel para parar na hora.</p></div>
+    <div class="cartao"><h3 data-l="en">Stays on your PC</h3><h3 data-l="pt">Fica no seu PC</h3><p data-l="en">No telemetry and no server of ours. Only what you send to OmniRoute providers or Claude leaves your machine.</p><p data-l="pt">Sem telemetria e sem servidor nosso. Só sai do PC o que você mandar para o OmniRoute ou para o Claude.</p></div>
+  </div>
+</div></section>
+
+<section id="faq"><div class="wrap">
+  <h2>FAQ</h2>
+  <details><summary data-l="en">Is it really free?</summary><summary data-l="pt">É gratuito mesmo?</summary><p data-l="en">Yes. The agent and the local models are free. You still need your own Claude plan for Claude Code; the agent just makes it last longer.</p><p data-l="pt">Sim. O agente e os modelos locais são grátis. Você ainda precisa do seu plano do Claude para o Claude Code; o agente só faz ele render mais.</p></details>
+  <details><summary data-l="en">Does it work without an NVIDIA GPU?</summary><summary data-l="pt">Funciona sem placa NVIDIA?</summary><p data-l="en">Yes, on the CPU with smaller models. It is slower, so turning on OmniRoute helps.</p><p data-l="pt">Sim, no processador, com modelos menores. Fica mais lento, então ligar o OmniRoute ajuda.</p></details>
+  <details><summary data-l="en">Does it work with Claude Desktop too?</summary><summary data-l="pt">Funciona no Claude Desktop também?</summary><p data-l="en">Yes. <code>agente init</code> registers it in both Claude Code and Claude Desktop.</p><p data-l="pt">Sim. O <code>agente init</code> registra nos dois: Claude Code e Claude Desktop.</p></details>
+  <details><summary data-l="en">How do I uninstall?</summary><summary data-l="pt">Como desinstalo?</summary><p data-l="en">Delete the folder and the <i>Agente local</i> shortcut, then remove the <code>agente-local</code> block from <code>~/.claude.json</code> and <code>~/.claude/CLAUDE.md</code>.</p><p data-l="pt">Apague a pasta e o atalho <i>Agente local</i>, e tire o bloco <code>agente-local</code> de <code>~/.claude.json</code> e de <code>~/.claude/CLAUDE.md</code>.</p></details>
+  <details><summary data-l="en">Why is the code in Portuguese?</summary><summary data-l="pt">Por que o código está em português?</summary><p data-l="en">It was built in Brazil, in Portuguese. The docs are in English and Portuguese, and contributions in either language are welcome.</p><p data-l="pt">Foi feito no Brasil, em português. A documentação está em inglês e português, e contribuições nas duas línguas são bem-vindas.</p></details>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <p data-l="en">MIT License © 2026 <a href="https://felipebherve.github.io/">Felipe Bruno Hervé</a>. Independent project, not affiliated with Anthropic, Ollama, OmniRoute or GitHub. "Claude" is a trademark of Anthropic. The agent runs commands and clicks on your computer: use it at your own risk. <a href="https://github.com/felipebherve/agente-local/blob/main/THIRD_PARTY_NOTICES.md">Third-party licenses</a>.</p>
+  <p data-l="pt">Licença MIT © 2026 <a href="https://felipebherve.github.io/">Felipe Bruno Hervé</a>. Projeto independente, sem vínculo com Anthropic, Ollama, OmniRoute ou GitHub. "Claude" é marca da Anthropic. O agente roda comandos e clica no seu computador: use por sua conta e risco. <a href="https://github.com/felipebherve/agente-local/blob/main/THIRD_PARTY_NOTICES.md">Licenças de terceiros</a>.</p>
+</div></footer>
+
+<script>
+(function () {
+  var html = document.documentElement, btn = document.getElementById("btnLang");
+  function aplicar(l) {
+    html.lang = l === "pt" ? "pt-BR" : "en";
+    btn.textContent = l === "pt" ? "EN" : "PT";
+    try { localStorage.setItem("lang", l); } catch (e) {}
+  }
+  var salvo = null;
+  try { salvo = localStorage.getItem("lang"); } catch (e) {}
+  aplicar(salvo || ((navigator.language || "").toLowerCase().indexOf("pt") === 0 ? "pt" : "en"));
+  btn.onclick = function () { aplicar(html.lang === "en" ? "pt" : "en"); };
+
+  document.querySelectorAll(".abas button").forEach(function (b) {
+    b.onclick = function () {
+      document.querySelectorAll(".abas button").forEach(function (x) { x.setAttribute("aria-selected", x === b); });
+      document.querySelectorAll(".painel-aba").forEach(function (p) { p.classList.toggle("ativa", p.id === "os-" + b.dataset.os); });
+    };
+  });
+  if ((navigator.userAgent || "").indexOf("Windows") >= 0) document.querySelector('[data-os="windows"]').click();
+
+  document.querySelectorAll("pre").forEach(function (pre) {
+    var b = document.createElement("button");
+    b.className = "copiar"; b.type = "button"; b.textContent = "copy";
+    b.onclick = function () {
+      navigator.clipboard.writeText(pre.innerText.replace(/copy$|copied$/, "").trim()).then(function () {
+        b.textContent = "copied"; setTimeout(function () { b.textContent = "copy"; }, 1500);
+      });
+    };
+    pre.appendChild(b);
+  });
+})();
+</script>
+</body>
+</html>

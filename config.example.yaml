@@ -1,0 +1,64 @@
+# Configuração do agente local. Nada aqui sai do seu PC.
+# Criada pelo "agente init"; edite à vontade e reabra o Claude depois.
+ollama_url: http://localhost:11434
+timeout_s: 180
+keep_alive: 10m        # quanto tempo o modelo fica na placa de vídeo depois do último uso
+pensar: false          # false = respostas rápidas (desliga o "raciocínio" do qwen3)
+max_tokens: 1024       # teto de tamanho da resposta; evita loops que prendem a placa
+
+modelos:
+  cerebro: {CEREBRO}       # decide e usa ferramentas
+  codigo: {CODIGO}         # código, resumos de teste e commits
+  visao: {VISAO}           # lê a tela
+  embeddings: {EMBEDDINGS} # busca nos projetos
+
+pasta_logs: logs
+
+# Como o agente te chama nas respostas ("" = sem nome)
+nome_usuario: {NOME}
+
+# Degrau do meio entre o modelo local e o Claude: IA grátis na nuvem pelo OmniRoute
+# (npm install -g omniroute && omniroute). Ligue pelo menos um provedor no painel dele
+# (http://localhost:20128) e coloque o id "provedor/modelo" na lista abaixo. Sem ele no ar,
+# o agente pula direto pro Claude.
+omniroute:
+  ligado: {OMNIROUTE}
+  url: http://127.0.0.1:20128/v1
+  timeout_s: 25
+  modelos: []
+  # - groq/llama-3.3-70b-versatile
+  # - gemini/gemini-2.5-flash
+
+# Pastas que o agente pode ler e onde pode rodar comandos (cada subpasta é um projeto)
+pastas_permitidas:
+{PASTAS}
+comandos_liberados: [git, gh, python, pytest, npm, npx, node]
+
+# Controle do computador
+navegador: chrome
+apps_liberados: {}
+  # calculadora: gnome-calculator      (Linux)
+  # calculadora: calc.exe              (Windows)
+
+# "abrir <site>": nomes curtos que não precisam do endereço completo
+sites_liberados:
+  google: https://www.google.com/
+  github: https://github.com/
+  claude: https://claude.ai/
+
+# Voz (opcional: pip install "agente-local[voz]")
+voz:
+  stt: large-v3-turbo      # reconhecimento de fala na placa de vídeo
+  stt_cpu: small           # usado no processador
+  tts: pt_BR-faber-medium  # voz do Piper (confira a licença da voz que escolher)
+  atalho: ""
+  falar_respostas: false
+  microfone: ""            # trecho do nome do microfone ("" = padrão do sistema)
+
+# Teto de uso do PC: acima disso o agente recusa a tarefa em vez de travar o computador
+limites:
+  ram_pct: 90
+  vram_pct: 95
+
+# Config compartilhada entre PCs por um HD externo: nome da pasta do HD ("" = não usa)
+hd_compartilhado: ""

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>Formulário de teste do agente</title></head>
+<body>
+  <h1>Cadastro de teste</h1>
+  <p>Página local para testar o braço do agente. Nada aqui sai do computador.</p>
+  <form onsubmit="event.preventDefault(); document.getElementById('saida').innerText = 'Enviado: ' + nome.value;">
+    <label>Nome <input id="nome" name="nome"></label>
+    <label>E-mail <input id="email" type="email" placeholder="voce@exemplo.com"></label>
+    <label>Senha <input id="senha" type="password"></label>
+    <label>Plano
+      <select id="plano"><option>Grátis</option><option>Pro</option></select>
+    </label>
+    <button type="button" onclick="document.getElementById('saida').innerText = 'Pré-visualizado: ' + nome.value">Pré-visualizar</button>
+    <button type="submit">Enviar cadastro</button>
+  </form>
+  <p id="saida"></p>
+  <a href="#ajuda">Ajuda</a>
+</body>
+</html>

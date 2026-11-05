@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agente local</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233b6ef5'/%3E%3Cpath d='M9 21l7-11 7 11' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f6f7f9; --painel: #ffffff; --painel-2: #f0f2f5; --borda: #e3e6eb;
+  --texto: #15181d; --texto-2: #5b6370; --texto-3: #8a929e;
+  --acento: #3b6ef5; --acento-suave: #e8eefe;
+  --ok: #1f9d55; --aviso: #c98a0b; --erro: #d14343;
+  --local: #1f9d55; --nuvem: #3b6ef5; --claude: #c2622d; --comando: #6b7280;
+  --sombra: 0 1px 2px rgba(16,24,40,.05);
+  --raio: 10px;
+  --mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    --bg: #0e1013; --painel: #16191e; --painel-2: #1d2127; --borda: #2a2f37;
+    --texto: #e8eaed; --texto-2: #a3abb7; --texto-3: #6f7782;
+    --acento: #6b93ff; --acento-suave: #1c2741;
+    --sombra: none;
+  }
+}
+:root[data-tema="escuro"] {
+  --bg: #0e1013; --painel: #16191e; --painel-2: #1d2127; --borda: #2a2f37;
+  --texto: #e8eaed; --texto-2: #a3abb7; --texto-3: #6f7782;
+  --acento: #6b93ff; --acento-suave: #1c2741;
+  --sombra: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--texto);
+  font: 14px/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
+  display: grid; grid-template-rows: auto 1fr; height: 100vh; overflow: hidden;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+header {
+  display: flex; align-items: center; gap: 16px; padding: 12px 20px;
+  border-bottom: 1px solid var(--borda); background: var(--painel);
+}
+.marca { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; }
+.marca svg { width: 26px; height: 26px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; align-items: center; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--borda); color: var(--texto-2); font-size: 12px; white-space: nowrap;
+}
+.ponto { width: 7px; height: 7px; border-radius: 50%; background: var(--texto-3); }
+.ponto.ok { background: var(--ok); }
+.ponto.erro { background: var(--erro); }
+.ponto.aviso { background: var(--aviso); }
+.icone-btn {
+  border: 1px solid var(--borda); background: transparent; border-radius: 8px;
+  width: 32px; height: 32px; display: grid; place-items: center; color: var(--texto-2);
+}
+.icone-btn:hover { background: var(--painel-2); }
+
+main { display: grid; grid-template-columns: 300px 1fr; gap: 16px; padding: 16px 20px; min-height: 0; }
+aside { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; overflow-y: auto; }
+.cartao {
+  background: var(--painel); border: 1px solid var(--borda); border-radius: var(--raio);
+  box-shadow: var(--sombra); padding: 14px 16px;
+}
+.cartao h2 {
+  font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--texto-3); margin: 0 0 12px;
+}
+.destaque { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.sub { color: var(--texto-2); font-size: 12px; }
+
+.medidor { margin-bottom: 10px; }
+.medidor:last-child { margin-bottom: 0; }
+.medidor .linha { display: flex; justify-content: space-between; font-size: 12px; color: var(--texto-2); }
+.medidor .linha b { color: var(--texto); font-weight: 500; font-variant-numeric: tabular-nums; }
+.barra { height: 6px; background: var(--painel-2); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+.barra > i { display: block; height: 100%; background: var(--acento); border-radius: 3px; transition: width .4s; }
+.barra > i.alto { background: var(--aviso); }
+.barra > i.critico { background: var(--erro); }
+
+.agente { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-top: 1px solid var(--borda); }
+.agente:first-of-type { border-top: 0; padding-top: 0; }
+.agente .info { flex: 1; min-width: 0; }
+.agente .nome { font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.agente .desc { font-size: 12px; color: var(--texto-2); }
+.trabalhando {
+  font-size: 11px; color: var(--acento); background: var(--acento-suave); padding: 0 6px; border-radius: 4px;
+}
+.chave { position: relative; width: 34px; height: 20px; flex: none; margin-top: 2px; }
+.chave input { opacity: 0; width: 0; height: 0; position: absolute; }
+.chave span {
+  position: absolute; inset: 0; background: var(--borda); border-radius: 999px; transition: background .2s; cursor: pointer;
+}
+.chave span::after {
+  content: ""; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px;
+  background: #fff; border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+.chave input:checked + span { background: var(--acento); }
+.chave input:checked + span::after { transform: translateX(14px); }
+.chave input:focus-visible + span { outline: 2px solid var(--acento); outline-offset: 2px; }
+
+.rota { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--texto-2); }
+.rota .degrau { padding: 2px 8px; border: 1px solid var(--borda); border-radius: 6px; }
+.rota .seta { color: var(--texto-3); }
+
+section.principal {
+  display: flex; flex-direction: column; min-height: 0; min-width: 0;
+  background: var(--painel); border: 1px solid var(--borda); border-radius: var(--raio); box-shadow: var(--sombra);
+}
+nav.abas { display: flex; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--borda); overflow-x: auto; }
+nav.abas button {
+  border: 0; background: transparent; padding: 8px 14px; color: var(--texto-2);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+}
+nav.abas button[aria-selected="true"] { color: var(--texto); border-bottom-color: var(--acento); font-weight: 500; }
+.aba { display: none; flex: 1; min-height: 0; flex-direction: column; }
+.aba.ativa { display: flex; }
+
+.mensagens { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+.vazio { margin: auto; text-align: center; color: var(--texto-2); max-width: 420px; }
+.vazio h3 { color: var(--texto); font-weight: 600; margin: 0 0 6px; }
+.sugestoes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px; }
+.sugestoes button { border: 1px solid var(--borda); background: var(--painel-2); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+.msg { max-width: 760px; }
+.msg.voce { align-self: flex-end; background: var(--acento-suave); padding: 8px 12px; border-radius: 10px; white-space: pre-wrap; }
+.msg.agente .corpo { white-space: pre-wrap; }
+.etiqueta {
+  display: inline-flex; gap: 6px; align-items: center; font-size: 11px; font-weight: 500;
+  padding: 1px 8px; border-radius: 4px; margin-bottom: 4px; border: 1px solid currentColor;
+}
+.d-local { color: var(--local); } .d-nuvem { color: var(--nuvem); }
+.d-claude { color: var(--claude); } .d-comando { color: var(--comando); }
+.digitando { color: var(--texto-3); font-style: italic; }
+
+form.compositor { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--borda); align-items: flex-end; }
+form.compositor textarea {
+  flex: 1; resize: none; min-height: 42px; max-height: 180px; padding: 10px 12px;
+  border: 1px solid var(--borda); border-radius: 8px; background: var(--bg); color: var(--texto); font: inherit;
+}
+form.compositor textarea:focus { outline: 2px solid var(--acento); outline-offset: -1px; border-color: transparent; }
+.btn {
+  height: 42px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--borda);
+  background: var(--painel-2); font-weight: 500;
+}
+.btn.primario { background: var(--acento); border-color: var(--acento); color: #fff; }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.mic { width: 42px; padding: 0; display: grid; place-items: center; }
+.btn.mic.gravando { background: var(--erro); border-color: var(--erro); color: #fff; animation: pulso 1.4s infinite; }
+@keyframes pulso { 50% { box-shadow: 0 0 0 6px rgba(209,67,67,.18); } }
+
+.rolavel { flex: 1; overflow-y: auto; padding: 16px 20px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-weight: 500; color: var(--texto-3); font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--borda); }
+td { padding: 8px; border-bottom: 1px solid var(--borda); vertical-align: top; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.mono, .mono { font-family: var(--mono); font-size: 12px; }
+tr.clicavel { cursor: pointer; }
+tr.clicavel:hover td { background: var(--painel-2); }
+tr.detalhe td { background: var(--painel-2); white-space: pre-wrap; color: var(--texto-2); }
+
+.grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.grafico { display: flex; align-items: flex-end; gap: 3px; height: 160px; padding-top: 8px; border-bottom: 1px solid var(--borda); }
+.grafico .col { flex: 1; background: var(--acento); border-radius: 2px 2px 0 0; min-height: 1px; position: relative; }
+.grafico .col:hover { opacity: .8; }
+.eixo { display: flex; justify-content: space-between; color: var(--texto-3); font-size: 11px; margin-top: 4px; }
+.tipo { display: grid; grid-template-columns: 120px 1fr 80px; gap: 10px; align-items: center; font-size: 13px; margin-bottom: 6px; }
+.tipo .barra { margin: 0; height: 8px; }
+h3.titulo { font-size: 14px; font-weight: 600; margin: 0 0 10px; }
+
+.conta-topo { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.status { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--borda); color: var(--texto-2); white-space: nowrap; }
+.status.ok { color: var(--ok); border-color: currentColor; }
+.status.erro { color: var(--erro); border-color: currentColor; }
+.botoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.botoes .btn { height: 36px; display: inline-flex; align-items: center; text-decoration: none; color: inherit; }
+.botoes .btn.primario { color: #fff; }
+.campo { width: 100%; padding: 8px 10px; border: 1px solid var(--borda); border-radius: 8px; background: var(--bg); color: var(--texto); font: 13px var(--mono); }
+.campo.atalho { width: 220px; text-align: center; cursor: pointer; }
+.campo:focus { outline: 2px solid var(--acento); outline-offset: -1px; }
+.linha-chave { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
+.linha-chave .chave { margin: 0; }
+button.link { border: 0; background: none; color: var(--acento); padding: 0; font-size: inherit; }
+.pasta-linha { display: flex; gap: 8px; margin-bottom: 8px; }
+.pasta-linha .campo { flex: 1; }
+.pasta-linha .btn { height: 36px; padding: 0 12px; }
+.conta-grade { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-bottom: 0; }
+
+@media (max-width: 860px) {
+  body { height: auto; min-height: 100vh; overflow: visible; }
+  .mensagens { min-height: 320px; }
+  main { grid-template-columns: 1fr; padding: 12px 16px; }
+  header { flex-wrap: wrap; padding: 10px 16px; }
+  .chips { margin-left: 0; width: 100%; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="marca">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--acento)"/><path d="M9 21l7-11 7 11" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Agente local
+  </div>
+  <div class="chips">
+    <span class="chip"><i class="ponto" id="ptOllama"></i>Ollama <span id="txOllama"></span></span>
+    <span class="chip"><i class="ponto" id="ptOmni"></i>OmniRoute</span>
+    <span class="chip" title="Tokens que o Claude deixou de gastar">Poupados: <b id="txPoupados">–</b></span>
+    <button class="icone-btn" id="btnTema" title="Claro / escuro" aria-label="Trocar claro ou escuro">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <div class="cartao">
+      <h2>Computador</h2>
+      <div class="medidor"><div class="linha"><span>Placa de vídeo</span><b id="txVram">–</b></div><div class="barra"><i id="brVram" style="width:0"></i></div></div>
+      <div class="medidor"><div class="linha"><span>Memória</span><b id="txRam">–</b></div><div class="barra"><i id="brRam" style="width:0"></i></div></div>
+      <div class="medidor"><div class="linha"><span>Processador</span><b id="txCpu">–</b></div><div class="barra"><i id="brCpu" style="width:0"></i></div></div>
+      <div class="sub" id="txModelos" style="margin-top:10px"></div>
+    </div>
+
+    <div class="cartao">
+      <h2>Agentes</h2>
+      <div id="listaAgentes"></div>
+    </div>
+
+    <div class="cartao">
+      <h2>Caminho de cada pedido</h2>
+      <div class="rota">
+        <span class="degrau">Comando direto</span><span class="seta">→</span>
+        <span class="degrau d-local">Ollama no PC</span><span class="seta">→</span>
+        <span class="degrau d-nuvem">OmniRoute</span><span class="seta">→</span>
+        <span class="degrau d-claude">Claude</span>
+      </div>
+      <p class="sub" style="margin:10px 0 0">Cada degrau só é usado se o anterior não resolver. O Claude fica só com o que precisa dele.</p>
+    </div>
+  </aside>
+
+  <section class="principal">
+    <nav class="abas" role="tablist">
+      <button role="tab" aria-selected="true" data-aba="conversa">Conversa</button>
+      <button role="tab" aria-selected="false" data-aba="historico">Histórico</button>
+      <button role="tab" aria-selected="false" data-aba="economia">Economia</button>
+      <button role="tab" aria-selected="false" data-aba="projetos">Projetos</button>
+      <button role="tab" aria-selected="false" data-aba="config">Configurações</button>
+    </nav>
+
+    <div class="aba ativa" id="aba-conversa">
+      <div class="mensagens" id="mensagens">
+        <div class="vazio" id="vazio">
+          <h3>Peça algo ao agente</h3>
+          <div>O pedido passa pelo Maestro, como quando o Claude chama o agente. Cada resposta mostra quem respondeu.</div>
+          <div class="sugestoes">
+            <button type="button">quanto você já poupou?</button>
+            <button type="button">status</button>
+            <button type="button">explique o que é um commit</button>
+          </div>
+        </div>
+      </div>
+      <form class="compositor" id="formConversa">
+        <button type="button" class="btn mic" id="btnMic" title="Falar (Ctrl+Alt+F): clique para começar e de novo para mandar" aria-label="Falar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        </button>
+        <textarea id="entrada" rows="1" placeholder="Escreva um pedido. Enter envia, Shift+Enter quebra linha."></textarea>
+        <button class="btn primario" id="btnEnviar" type="submit">Enviar</button>
+      </form>
+    </div>
+
+    <div class="aba" id="aba-historico">
+      <div class="rolavel">
+        <table>
+          <thead><tr><th>Quando</th><th>Pedido</th><th>Agente</th><th>Rota</th><th class="num">Tempo</th></tr></thead>
+          <tbody id="tbHistorico"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="aba" id="aba-economia">
+      <div class="rolavel">
+        <div class="grade">
+          <div class="cartao"><h2>Total poupado</h2><div class="destaque" id="ecoTotal">–</div><div class="sub">tokens que o Claude não gastou</div></div>
+          <div class="cartao"><h2>Últimos 30 dias</h2><div class="destaque" id="eco30">–</div><div class="sub" id="eco30sub"></div></div>
+          <div class="cartao"><h2>IA grátis (OmniRoute)</h2><div class="destaque" id="ecoOmni">–</div><div class="sub">tokens usados pelo painel</div></div>
+        </div>
+        <h3 class="titulo">Por dia</h3>
+        <div class="grafico" id="grafico"></div>
+        <div class="eixo"><span id="eixoIni"></span><span id="eixoFim"></span></div>
+        <h3 class="titulo" style="margin-top:24px">Por tipo de tarefa</h3>
+        <div id="porTipo"></div>
+      </div>
+    </div>
+
+    <div class="aba" id="aba-projetos">
+      <div class="rolavel">
+        <p class="sub" style="margin-top:0">Pastas dentro das pastas liberadas no <span class="mono">config.yaml</span>. Para pedir algo de um projeto, cite o nome dele na conversa.</p>
+        <table>
+          <thead><tr><th>Projeto</th><th>Git</th><th>Alterado</th><th>Caminho</th></tr></thead>
+          <tbody id="tbProjetos"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="aba" id="aba-config">
+      <div class="rolavel">
+        <p class="sub" style="margin-top:0">O agente nunca guarda senha. Para entrar numa conta, o painel abre uma janela com o login oficial de cada programa. <button type="button" class="link" id="btnAtualizarConfig">Atualizar</button></p>
+
+        <h3 class="titulo">Contas</h3>
+        <div class="grade conta-grade">
+          <div class="cartao conta">
+            <div class="conta-topo"><b>Claude</b><span class="status" id="stClaude">…</span></div>
+            <p class="sub" id="txClaude"></p>
+            <div class="botoes">
+              <button class="btn" type="button" data-entrar="claude">Entrar no Claude</button>
+              <button class="btn" type="button" id="btnRegistrar">Registrar o agente no Claude</button>
+            </div>
+          </div>
+          <div class="cartao conta">
+            <div class="conta-topo"><b>GitHub</b><span class="status" id="stGithub">…</span></div>
+            <p class="sub" id="txGithub">Usado para push e pull requests.</p>
+            <div class="botoes"><button class="btn" type="button" data-entrar="github">Entrar no GitHub</button></div>
+          </div>
+        </div>
+
+        <div class="cartao" style="margin-top:12px">
+          <div class="conta-topo"><b>IAs grátis na nuvem (OmniRoute)</b><span class="status" id="stOmni">…</span></div>
+          <p class="sub">Degrau entre o modelo do seu PC e o Claude. 1) Abra o painel do OmniRoute e, em <b>Providers</b>, entre com as suas contas grátis (Groq, Gemini, NVIDIA NIM...). 2) Escreva abaixo os modelos, um por linha, na ordem em que o agente deve tentar (ex.: <span class="mono">groq/llama-3.3-70b-versatile</span>).</p>
+          <div class="botoes" style="margin-bottom:10px">
+            <a class="btn" id="lnkOmni" href="http://127.0.0.1:20128" target="_blank" rel="noopener">Abrir painel do OmniRoute</a>
+            <label class="linha-chave"><span class="chave"><input type="checkbox" id="ckOmni"><span></span></span> Usar o OmniRoute</label>
+          </div>
+          <textarea id="txModelos2" class="campo" rows="4" placeholder="provedor/modelo (um por linha)"></textarea>
+          <div class="botoes">
+            <button class="btn primario" type="button" id="btnSalvarOmni">Salvar</button>
+            <button class="btn" type="button" id="btnTestarOmni">Testar</button>
+            <span class="sub" id="msgOmni"></span>
+          </div>
+        </div>
+
+        <h3 class="titulo" style="margin-top:24px">Pastas que o agente pode usar</h3>
+        <div class="cartao">
+          <p class="sub" style="margin-top:0">O agente só lê, procura e roda comandos dentro destas pastas. Cada subpasta vira um projeto. Coloque quantas precisar.</p>
+          <div id="listaPastas"></div>
+          <div class="botoes">
+            <button class="btn" type="button" id="btnEscolherPasta">Escolher pasta...</button>
+            <button class="btn" type="button" id="btnAddPasta">Digitar caminho</button>
+            <button class="btn primario" type="button" id="btnSalvarPastas">Salvar pastas</button>
+            <span class="sub" id="msgPastas"></span>
+          </div>
+        </div>
+
+        <h3 class="titulo" style="margin-top:24px">Atalho de voz</h3>
+        <div class="cartao">
+          <p class="sub" style="margin-top:0">Aperte o atalho uma vez para começar a falar e de novo para mandar. Agora: <b id="txAtalho">…</b></p>
+          <div class="botoes">
+            <input id="inAtalho" class="campo atalho" readonly placeholder="Clique aqui e aperte as teclas">
+            <button class="btn" type="button" id="btnSugestao">Usar a sugestão: Ctrl+Alt+F</button>
+            <button class="btn primario" type="button" id="btnSalvarAtalho">Salvar atalho</button>
+            <span class="sub" id="msgAtalho"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const mil = (n) => Number(n || 0).toLocaleString("pt-BR");
+const ROTAS = { local: ["d-local", "Ollama no PC"], nuvem: ["d-nuvem", "OmniRoute"], claude: ["d-claude", "Precisa do Claude"], comando: ["d-comando", "Comando direto"] };
+const rota = (d) => ROTAS[d] || ["d-comando", d || "comando"];
+
+async function api(caminho, corpo) {
+  const op = corpo === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) };
+  const r = await fetch(caminho, op);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || r.statusText);
+  return r.json();
+}
+
+// tema claro/escuro (lembrado só neste navegador)
+try { const t = localStorage.getItem("tema"); if (t) document.documentElement.dataset.tema = t; } catch (e) {}
+$("#btnTema").onclick = () => {
+  const escuroAgora = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() === "#0e1013";
+  const novo = escuroAgora ? "claro" : "escuro";
+  document.documentElement.dataset.tema = novo;
+  try { localStorage.setItem("tema", novo); } catch (e) {}
+};
+
+// abas
+document.querySelectorAll("nav.abas button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll("nav.abas button").forEach((x) => x.setAttribute("aria-selected", x === b));
+  document.querySelectorAll(".aba").forEach((a) => a.classList.toggle("ativa", a.id === "aba-" + b.dataset.aba));
+  ({ historico: carregarHistorico, economia: carregarEconomia, projetos: carregarProjetos, config: carregarConfig })[b.dataset.aba]?.();
+});
+
+// estado (a cada 3 s)
+function medidor(id, usado, total, sufixo) {
+  const pct = total ? Math.min(100, (100 * usado) / total) : 0;
+  $("#tx" + id).textContent = total ? `${usado} de ${total}${sufixo}` : "–";
+  const barra = $("#br" + id);
+  barra.style.width = pct + "%";
+  barra.className = pct >= 90 ? "critico" : pct >= 75 ? "alto" : "";
+}
+let gravando = false;
+async function atualizarEstado() {
+  try {
+    const e = await api("/api/estado");
+    const r = e.recursos;
+    medidor("Vram", r.vram_usada_gb, r.vram_total_gb, " GB");
+    medidor("Ram", r.ram_usada_gb, r.ram_total_gb, " GB");
+    medidor("Cpu", r.cpu_pct, 100, "%");
+    $("#txCpu").textContent = r.cpu_pct + "%";
+    const s = e.servicos;
+    $("#ptOllama").className = "ponto " + (s.ollama ? "ok" : "erro");
+    $("#txOllama").textContent = s.ollama ? "" : "(fora do ar)";
+    $("#ptOmni").className = "ponto " + (!s.omniroute_configurado ? "" : s.omniroute ? "ok" : "aviso");
+    $("#txModelos").textContent = s.modelos_carregados.length ? "Na placa agora: " + s.modelos_carregados.join(", ") : "Nenhum modelo carregado na placa agora.";
+    $("#txPoupados").textContent = mil(e.tokens_poupados);
+    $("#ecoOmni").textContent = mil(e.omniroute_uso.reduce((a, p) => a + p.tokens, 0));
+    desenharAgentes(e.agentes);
+    marcarMic(e.voz_gravando);
+  } catch (err) {
+    $("#ptOllama").className = "ponto erro";
+  }
+}
+function desenharAgentes(agentes) {
+  $("#listaAgentes").innerHTML = agentes.map((a) => `
+    <div class="agente">
+      <div class="info">
+        <div class="nome">${esc(a.nome)} ${a.trabalhando ? '<span class="trabalhando">trabalhando</span>' : ""}</div>
+        <div class="desc">${esc(a.descricao)}</div>
+      </div>
+      <label class="chave" title="${a.ligado ? "Desligar" : "Ligar"} ${esc(a.nome)}">
+        <input type="checkbox" data-nome="${esc(a.nome)}" ${a.ligado ? "checked" : ""}><span></span>
+      </label>
+    </div>`).join("");
+  document.querySelectorAll("#listaAgentes input").forEach((i) => i.onchange = async () => {
+    try { desenharAgentes((await api("/api/agente", { nome: i.dataset.nome, ligado: i.checked })).agentes); }
+    catch (err) { i.checked = !i.checked; }
+  });
+}
+
+// conversa
+const entrada = $("#entrada");
+function adicionar(html, classe) {
+  $("#vazio")?.remove();
+  const div = document.createElement("div");
+  div.className = "msg " + classe;
+  div.innerHTML = html;
+  $("#mensagens").appendChild(div);
+  div.scrollIntoView({ block: "end" });
+  return div;
+}
+async function enviar(texto) {
+  texto = texto.trim();
+  if (!texto) return;
+  adicionar(esc(texto), "voce");
+  const espera = adicionar('<span class="digitando">Pensando...</span>', "agente");
+  $("#btnEnviar").disabled = true;
+  try {
+    const r = await api("/api/perguntar", { mensagem: texto });
+    const [cls, nome] = rota(r.destino);
+    espera.innerHTML = `<span class="etiqueta ${cls}">${esc(nome)} · ${esc(r.agente)}</span><div class="corpo">${esc(r.resposta)}</div>`;
+  } catch (err) {
+    espera.innerHTML = `<span class="etiqueta d-claude">Erro</span><div class="corpo">${esc(err.message)}</div>`;
+  } finally {
+    $("#btnEnviar").disabled = false;
+  }
+}
+$("#formConversa").onsubmit = (ev) => { ev.preventDefault(); const t = entrada.value; entrada.value = ""; ajustar(); enviar(t); };
+entrada.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); $("#formConversa").requestSubmit(); } });
+function ajustar() { entrada.style.height = "auto"; entrada.style.height = Math.min(entrada.scrollHeight, 180) + "px"; }
+entrada.addEventListener("input", ajustar);
+document.querySelectorAll(".sugestoes button").forEach((b) => b.onclick = () => enviar(b.textContent));
+
+// microfone: mesmo liga/desliga do Ctrl+Alt+F; a resposta chega no histórico
+function marcarMic(v) {
+  gravando = v;
+  $("#btnMic").classList.toggle("gravando", v);
+  $("#btnMic").title = v ? "Gravando: clique para mandar" : "Falar (Ctrl+Alt+F): clique para começar e de novo para mandar";
+}
+let ultimoHistorico = null;
+$("#btnMic").onclick = async () => {
+  const r = await api("/api/voz", {});
+  marcarMic(r.gravando);
+  if (r.gravando) {
+    ultimoHistorico = (await api("/api/historico")).registros[0]?.quando || "";
+    adicionar('<span class="digitando">Ouvindo... clique no microfone de novo para mandar.</span>', "agente");
+  } else {
+    esperarVoz();
+  }
+};
+async function esperarVoz() {
+  const aviso = adicionar('<span class="digitando">Transcrevendo e pensando...</span>', "agente");
+  for (let i = 0; i < 90; i++) {
+    await new Promise((ok) => setTimeout(ok, 2000));
+    const reg = (await api("/api/historico")).registros[0];
+    if (reg && reg.quando !== ultimoHistorico) {
+      const [cls, nome] = rota(reg.destino);
+      aviso.className = "msg voce";
+      aviso.textContent = reg.pedido;
+      adicionar(`<span class="etiqueta ${cls}">${esc(nome)} · ${esc(reg.agente)}</span><div class="corpo">${esc(reg.resposta)}</div>`, "agente");
+      return;
+    }
+  }
+  aviso.innerHTML = '<span class="digitando">Não chegou resposta. Veja a aba Histórico.</span>';
+}
+
+// histórico
+async function carregarHistorico() {
+  const { registros } = await api("/api/historico");
+  const tb = $("#tbHistorico");
+  if (!registros.length) { tb.innerHTML = '<tr><td colspan="5" class="sub">Nenhum pedido ainda.</td></tr>'; return; }
+  tb.innerHTML = registros.map((r, i) => {
+    const [cls, nome] = rota(r.destino);
+    return `<tr class="clicavel" data-i="${i}"><td class="mono">${esc(r.quando.slice(5, 16))}</td><td>${esc(r.pedido.slice(0, 120))}</td>` +
+      `<td>${esc(r.agente)}</td><td><span class="etiqueta ${cls}">${esc(nome)}</span></td><td class="num">${(r.segundos || 0).toFixed(1)} s</td></tr>`;
+  }).join("");
+  tb.querySelectorAll("tr.clicavel").forEach((tr) => tr.onclick = () => {
+    if (tr.nextElementSibling?.classList.contains("detalhe")) { tr.nextElementSibling.remove(); return; }
+    const r = registros[tr.dataset.i];
+    tr.insertAdjacentHTML("afterend", `<tr class="detalhe"><td colspan="5"><b>Pedido:</b> ${esc(r.pedido)}\n\n<b>Resposta:</b> ${esc(r.resposta)}</td></tr>`);
+  });
+}
+
+// economia
+async function carregarEconomia() {
+  const e = await api("/api/economia");
+  $("#ecoTotal").textContent = mil(e.total);
+  const soma30 = e.dias.reduce((a, d) => a + d.tokens, 0);
+  $("#eco30").textContent = mil(soma30);
+  $("#eco30sub").textContent = `média de ${mil(Math.round(soma30 / 30))} por dia`;
+  const max = Math.max(1, ...e.dias.map((d) => d.tokens));
+  $("#grafico").innerHTML = e.dias.map((d) =>
+    `<div class="col" style="height:${(100 * d.tokens) / max}%" title="${d.dia.split("-").reverse().join("/")}: ${mil(d.tokens)} tokens"></div>`).join("");
+  $("#eixoIni").textContent = e.dias[0].dia.split("-").reverse().slice(0, 2).join("/");
+  $("#eixoFim").textContent = "hoje";
+  const maxTipo = Math.max(1, ...e.por_tipo.map((t) => t.tokens));
+  $("#porTipo").innerHTML = e.por_tipo.map((t) =>
+    `<div class="tipo"><span>${esc(t.tipo)}</span><div class="barra"><i style="width:${(100 * t.tokens) / maxTipo}%"></i></div><span class="num" style="text-align:right">${mil(t.tokens)}</span></div>`).join("")
+    || '<p class="sub">Nada registrado ainda.</p>';
+}
+
+// projetos
+async function carregarProjetos() {
+  const { projetos } = await api("/api/projetos");
+  $("#tbProjetos").innerHTML = projetos.map((p) =>
+    `<tr><td><b>${esc(p.nome)}</b></td><td>${esc(p.git)}</td><td class="mono">${esc(p.alterado)}</td><td class="mono">${esc(p.caminho)}</td></tr>`).join("")
+    || '<tr><td colspan="4" class="sub">Nenhuma pasta liberada no config.yaml.</td></tr>';
+}
+
+// configurações
+function status(id, ok, textoOk, textoNao) {
+  const el = $(id); el.className = "status " + (ok ? "ok" : "erro"); el.textContent = ok ? textoOk : textoNao;
+}
+const bonito = (a) => a ? a.split("+").map((p) => p.length === 1 ? p.toUpperCase() : p[0].toUpperCase() + p.slice(1)).join("+") : "nenhum";
+async function carregarConfig() {
+  const c = await api("/api/config");
+  status("#stClaude", c.claude.conectado, "conectado", c.claude.instalado ? "não conectado" : "não instalado");
+  $("#txClaude").textContent = (c.claude.conectado ? `Conta: ${c.claude.conta}${c.claude.plano ? " · " + c.claude.plano : ""}. ` : "") +
+    (c.claude.agente_registrado ? "O agente está registrado no Claude Code." : "O agente ainda não está registrado no Claude Code.");
+  status("#stGithub", c.github.conectado, "conectado" + (c.github.conta ? ": " + c.github.conta : ""), c.github.instalado ? "não conectado" : "gh não instalado");
+  status("#stOmni", c.omniroute.no_ar, "no ar", "fora do ar");
+  $("#lnkOmni").href = c.omniroute.painel;
+  $("#ckOmni").checked = c.omniroute.ligado;
+  $("#txModelos2").value = c.omniroute.modelos.join("\n");
+  desenharPastas(c.pastas);
+  $("#txAtalho").textContent = bonito(c.atalho.atalho);
+  $("#inAtalho").value = bonito(c.atalho.atalho || c.atalho.sugerido);
+  $("#inAtalho").dataset.valor = c.atalho.atalho || c.atalho.sugerido;
+}
+$("#btnAtualizarConfig").onclick = carregarConfig;
+function desenharPastas(pastas) {
+  $("#listaPastas").innerHTML = "";
+  pastas.forEach(adicionarPasta);
+  if (!pastas.length) $("#listaPastas").innerHTML = '<p class="sub" id="semPastas">Nenhuma pasta liberada ainda.</p>';
+}
+function adicionarPasta(valor) {
+  $("#semPastas")?.remove();
+  const linha = document.createElement("div");
+  linha.className = "pasta-linha";
+  linha.innerHTML = '<input class="campo" placeholder="/home/voce/projetos  ou  D:\\projetos"><button class="btn" type="button" title="Tirar esta pasta">Remover</button>';
+  linha.querySelector("input").value = valor || "";
+  linha.querySelector("button").onclick = () => linha.remove();
+  $("#listaPastas").appendChild(linha);
+  return linha.querySelector("input");
+}
+$("#btnAddPasta").onclick = () => adicionarPasta("").focus();
+$("#btnEscolherPasta").onclick = async () => {
+  $("#msgPastas").textContent = "Escolha a pasta na janela que abriu...";
+  const r = await api("/api/config/escolher-pasta", {});
+  $("#msgPastas").textContent = r.pasta ? "Adicionada. Clique em Salvar pastas." : "Nenhuma pasta escolhida.";
+  if (r.pasta) adicionarPasta(r.pasta);
+};
+$("#btnSalvarPastas").onclick = async () => {
+  const pastas = [...document.querySelectorAll("#listaPastas input")].map((i) => i.value);
+  try {
+    const c = await api("/api/config/pastas", { pastas });
+    desenharPastas(c.pastas);
+    $("#msgPastas").textContent = "Salvo.";
+  } catch (e) { $("#msgPastas").textContent = "Erro: " + e.message; }
+};
+document.querySelectorAll("[data-entrar]").forEach((b) => b.onclick = async () => {
+  const r = await api("/api/config/entrar", { servico: b.dataset.entrar });
+  b.textContent = r.ok ? "Janela de login aberta. Depois clique em Atualizar." : r.aviso;
+});
+$("#btnRegistrar").onclick = async () => {
+  const r = await api("/api/config/registrar-claude", {});
+  $("#txClaude").textContent = r.linhas.join(" · ") + " · Reabra o Claude para carregar.";
+};
+$("#btnSalvarOmni").onclick = async () => {
+  try {
+    await api("/api/config/omniroute", { ligado: $("#ckOmni").checked, modelos: $("#txModelos2").value.split("\n") });
+    $("#msgOmni").textContent = "Salvo.";
+    carregarConfig();
+  } catch (e) { $("#msgOmni").textContent = "Erro: " + e.message; }
+};
+$("#btnTestarOmni").onclick = async () => {
+  $("#msgOmni").textContent = "Testando...";
+  const r = await api("/api/config/omniroute-testar", {});
+  $("#msgOmni").textContent = r.ok ? `Funcionou: respondeu ${r.modelo}.` : "Nenhum modelo respondeu. Confira os provedores e se está ligado.";
+};
+$("#inAtalho").addEventListener("keydown", (ev) => {
+  ev.preventDefault();
+  const mods = [ev.ctrlKey && "ctrl", ev.altKey && "alt", ev.shiftKey && "shift", ev.metaKey && "super"].filter(Boolean);
+  const k = ev.key.toLowerCase();
+  if (["control", "alt", "shift", "meta", "altgraph"].includes(k)) return;
+  const tecla = k === " " ? "space" : /^[a-z0-9]$/.test(k) || /^f([1-9]|1[0-2])$/.test(k) ? k : (ev.code.startsWith("Key") ? ev.code.slice(3).toLowerCase() : "");
+  if (!mods.length || !tecla) { $("#msgAtalho").textContent = "Use Ctrl, Alt, Shift ou Super junto com uma letra, número ou F1-F12."; return; }
+  const valor = [...mods, tecla].join("+");
+  ev.target.dataset.valor = valor; ev.target.value = bonito(valor); $("#msgAtalho").textContent = "";
+});
+$("#btnSugestao").onclick = () => { $("#inAtalho").dataset.valor = "ctrl+alt+f"; $("#inAtalho").value = "Ctrl+Alt+F"; };
+$("#btnSalvarAtalho").onclick = async () => {
+  try {
+    const r = await api("/api/config/atalho", { atalho: $("#inAtalho").dataset.valor || "" });
+    $("#msgAtalho").textContent = "Salvo: " + bonito(r.atalho);
+    $("#txAtalho").textContent = bonito(r.atalho);
+  } catch (e) { $("#msgAtalho").textContent = "Erro: " + e.message; }
+};
+
+atualizarEstado();
+setInterval(atualizarEstado, 3000);
+</script>
+</body>
+</html>
