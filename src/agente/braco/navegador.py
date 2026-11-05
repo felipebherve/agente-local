@@ -7,6 +7,7 @@ Claude do que um print, e mais confiável que clicar por coordenada.
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 from collections.abc import Callable
 from datetime import datetime
@@ -309,13 +310,51 @@ def navegador(cfg: Config) -> Navegador:
 GIT_PALAVRAS = ("git", "github", "gitlab", "repositorio", "repositório")
 
 
-def abrir_endereco(cfg: Config, alvo: str) -> str:
-    """Abre o alvo no navegador: site conhecido, domínio direto ou busca no Google."""
+BUSCA = "https://duckduckgo.com/?q="
+
+# Processos curtos (o atalho de voz Ctrl+Alt+F) ligam isto: o Chrome do Playwright morre
+# junto com o processo, então a janela abria e fechava na hora. Nesses casos o site abre
+# no navegador normal do usuário, que continua aberto depois que o atalho termina.
+NAVEGADOR_PROPRIO = False
+
+
+def abrir_no_navegador_proprio(endereco: str) -> str:
+    """Abre o endereço no navegador padrão do sistema, solto do processo do agente."""
+    if "://" not in endereco:
+        endereco = f"https://{endereco}"
+    subprocess.Popen(
+        ["xdg-open", endereco],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    return f"Aberto no seu navegador: {endereco}"
+
+
+def site_conhecido(cfg: Config, alvo: str) -> str | None:
+    """Endereço do site conhecido citado no pedido ("o YouTube e deixe aberto" -> YouTube)."""
     chave = alvo.strip().lower()
-    endereco = cfg.sites_liberados.get(chave)
+    if chave in cfg.sites_liberados:
+        return cfg.sites_liberados[chave]
+    # Nomes mais longos primeiro: "chat gpt" ganha de "gpt", "google gemini" de "google".
+    for nome in sorted(cfg.sites_liberados, key=len, reverse=True):
+        if re.search(rf"(?<![\w.-]){re.escape(nome.lower())}(?![\w.-])", chave):
+            return cfg.sites_liberados[nome]
+    return None
+
+
+def abrir_endereco(cfg: Config, alvo: str) -> str:
+    """Abre o alvo no navegador: site conhecido, domínio direto ou uma busca.
+
+    A busca vai para o DuckDuckGo: o Google não aceita buscas vindas de navegador
+    automatizado e responde com a página de verificação (google.com/sorry).
+    """
+    endereco = site_conhecido(cfg, alvo)
     if endereco is None:
         tem_dominio = "." in alvo.strip() and " " not in alvo.strip()
-        endereco = alvo if tem_dominio else f"https://www.google.com/search?q={quote(alvo)}"
+        endereco = alvo if tem_dominio else f"{BUSCA}{quote(alvo)}"
+    if NAVEGADOR_PROPRIO:
+        return abrir_no_navegador_proprio(endereco)
     return navegador(cfg).abrir(endereco)
 
 

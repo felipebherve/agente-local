@@ -159,6 +159,9 @@ def main() -> None:
     ARQUIVO_PARAR.unlink(missing_ok=True)
     ARQUIVO_PID.write_text(str(os.getpid()))
     cfg = carregar_config()
+    from agente.braco import navegador as braco_navegador
+
+    braco_navegador.NAVEGADOR_PROPRIO = True  # este processo termina logo após responder
     notificar("Ouvindo...", "Fale à vontade. Aperte Ctrl+Alt+F de novo para mandar.", int(MAX_S))
     try:
         try:

@@ -72,12 +72,20 @@ def test_abrir_endereco_dominio_direto(monkeypatch):
     assert falso.urls == ["exemplo.com.br"]
 
 
-def test_abrir_endereco_sem_dominio_busca_no_google(monkeypatch):
+def test_abrir_endereco_sem_dominio_faz_busca(monkeypatch):
     falso = _NavegadorFalso()
     monkeypatch.setattr(navegador, "navegador", lambda _cfg: falso)
     cfg = SimpleNamespace(sites_liberados={})
     navegador.abrir_endereco(cfg, "qual o sentido da vida")
-    assert falso.urls[0].startswith("https://www.google.com/search?q=")
+    assert falso.urls[0].startswith("https://duckduckgo.com/?q=")
+
+
+def test_abrir_endereco_acha_site_conhecido_na_frase(monkeypatch):
+    falso = _NavegadorFalso()
+    monkeypatch.setattr(navegador, "navegador", lambda _cfg: falso)
+    cfg = SimpleNamespace(sites_liberados={"youtube": "https://www.youtube.com/"})
+    navegador.abrir_endereco(cfg, "o YouTube e deixe aberto")
+    assert falso.urls == ["https://www.youtube.com/"]
 
 
 def test_resolver_abrir_app_liberado(cfg, monkeypatch):
@@ -128,3 +136,21 @@ def test_resolver_abrir_projeto_no_git_nao_achado(cfg, monkeypatch):
     monkeypatch.setattr(maestro, "achar_projeto", lambda _c, _frase: None)
     with pytest.raises(ErroExecucao):
         navegador.resolver_abrir(cfg, "projeto inexistente no git")
+
+
+def test_abrir_endereco_no_navegador_proprio(monkeypatch):
+    chamadas = []
+    monkeypatch.setattr(navegador, "NAVEGADOR_PROPRIO", True)
+    monkeypatch.setattr(navegador.subprocess, "Popen", lambda cmd, **_k: chamadas.append(cmd))
+    cfg = SimpleNamespace(sites_liberados={"youtube": "https://www.youtube.com/"})
+    assert "youtube" in navegador.abrir_endereco(cfg, "o YouTube e deixe aberto")
+    assert chamadas == [["xdg-open", "https://www.youtube.com/"]]
+
+
+def test_site_conhecido_prefere_nome_mais_longo():
+    cfg = SimpleNamespace(
+        sites_liberados={"google": "https://www.google.com/", "google maps": "https://maps"}
+    )
+    assert navegador.site_conhecido(cfg, "o Google Maps") == "https://maps"
+    assert navegador.site_conhecido(cfg, "o Google") == "https://www.google.com/"
+    assert navegador.site_conhecido(cfg, "a caixa de entrada") is None

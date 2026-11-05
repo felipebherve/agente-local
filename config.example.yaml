@@ -42,9 +42,93 @@ apps_liberados: {}
 
 # "abrir <site>": nomes curtos que não precisam do endereço completo
 sites_liberados:
+  youtube: https://www.youtube.com/
+  gmail: https://mail.google.com/
   google: https://www.google.com/
   github: https://github.com/
+  chatgpt: https://chatgpt.com/
   claude: https://claude.ai/
+  whatsapp: https://web.whatsapp.com/
+  netflix: https://www.netflix.com/
+  spotify: https://open.spotify.com/
+  twitch: https://www.twitch.tv/
+  instagram: https://www.instagram.com/
+  discord: https://discord.com/app
+  linkedin: https://www.linkedin.com/
+  tiktok: https://www.tiktok.com/
+  tik tok: https://www.tiktok.com/
+  gemini: https://gemini.google.com/
+  gpt: https://chatgpt.com/
+  chat gpt: https://chatgpt.com/
+  # Mais acessados no dia a dia (Brasil): redes, busca, compras, notícias, bancos, trabalho
+  facebook: https://www.facebook.com/
+  twitter: https://x.com/
+  reddit: https://www.reddit.com/
+  pinterest: https://www.pinterest.com/
+  kwai: https://www.kwai.com/
+  telegram: https://web.telegram.org/
+  wikipedia: https://pt.wikipedia.org/
+  bing: https://www.bing.com/
+  yahoo: https://www.yahoo.com/
+  outlook: https://outlook.live.com/
+  hotmail: https://outlook.live.com/
+  google drive: https://drive.google.com/
+  drive: https://drive.google.com/
+  google docs: https://docs.google.com/
+  planilhas: https://sheets.google.com/
+  google maps: https://www.google.com/maps
+  maps: https://www.google.com/maps
+  waze: https://www.waze.com/live-map/
+  tradutor: https://translate.google.com/
+  google tradutor: https://translate.google.com/
+  agenda: https://calendar.google.com/
+  google agenda: https://calendar.google.com/
+  google fotos: https://photos.google.com/
+  meet: https://meet.google.com/
+  google meet: https://meet.google.com/
+  teams: https://teams.microsoft.com/
+  zoom: https://zoom.us/
+  onedrive: https://onedrive.live.com/
+  dropbox: https://www.dropbox.com/
+  icloud: https://www.icloud.com/
+  notion: https://www.notion.so/
+  trello: https://trello.com/
+  canva: https://www.canva.com/
+  perplexity: https://www.perplexity.ai/
+  copilot: https://copilot.microsoft.com/
+  mercado livre: https://www.mercadolivre.com.br/
+  amazon: https://www.amazon.com.br/
+  shopee: https://shopee.com.br/
+  aliexpress: https://pt.aliexpress.com/
+  shein: https://br.shein.com/
+  magalu: https://www.magazineluiza.com.br/
+  magazine luiza: https://www.magazineluiza.com.br/
+  americanas: https://www.americanas.com.br/
+  casas bahia: https://www.casasbahia.com.br/
+  olx: https://www.olx.com.br/
+  ifood: https://www.ifood.com.br/
+  uber: https://m.uber.com/
+  airbnb: https://www.airbnb.com.br/
+  booking: https://www.booking.com/
+  g1: https://g1.globo.com/
+  globo: https://www.globo.com/
+  uol: https://www.uol.com.br/
+  ge: https://ge.globo.com/
+  globoplay: https://globoplay.globo.com/
+  prime video: https://www.primevideo.com/
+  disney: https://www.disneyplus.com/
+  max: https://play.max.com/
+  deezer: https://www.deezer.com/
+  nubank: https://app.nubank.com.br/
+  itau: https://www.itau.com.br/
+  itaú: https://www.itau.com.br/
+  bradesco: https://banco.bradesco/
+  banco do brasil: https://www.bb.com.br/
+  santander: https://www.santander.com.br/
+  caixa economica: https://www.caixa.gov.br/
+  gov.br: https://www.gov.br/
+  receita federal: https://www.gov.br/receitafederal/
+  correios: https://rastreamento.correios.com.br/
 
 # Voz (opcional: pip install "agente-local[voz]")
 voz:
