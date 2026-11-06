@@ -217,10 +217,11 @@ button.link { border: 0; background: none; color: var(--acento); padding: 0; fon
 a, a:visited { color: var(--acento); }
 a:hover { text-decoration-thickness: 2px; }
 .btn, .btn:visited { color: inherit; }
-dialog#dlgDetalhes { width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 48px); border: 1px solid var(--borda); border-radius: 12px; background: var(--painel); color: var(--texto); padding: 0; }
-dialog#dlgDetalhes::backdrop { background: rgba(0,0,0,.55); }
+dialog#dlgDetalhes, dialog#dlgTdah { width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 48px); border: 1px solid var(--borda); border-radius: 12px; background: var(--painel); color: var(--texto); padding: 0; }
+dialog#dlgDetalhes[open], dialog#dlgTdah[open] { display: flex; flex-direction: column; overflow: hidden; }
+dialog#dlgDetalhes::backdrop, dialog#dlgTdah::backdrop { background: rgba(0,0,0,.55); }
 .dlg-topo { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--borda); position: sticky; top: 0; background: var(--painel); }
-.dlg-corpo { padding: 16px 20px 24px; overflow: auto; }
+.dlg-corpo { padding: 16px 20px 24px; overflow: auto; min-height: 0; flex: 1; }
 .dlg-corpo h4 { margin: 20px 0 8px; font-size: calc(14px * var(--escala)); }
 .dlg-corpo p { margin: 0 0 8px; }
 .dlg-corpo .serve { font-size: calc(17px * var(--escala)); font-weight: 600; }
@@ -279,7 +280,6 @@ dialog#dlgDetalhes::backdrop { background: rgba(0,0,0,.55); }
       <button role="tab" aria-selected="false" data-aba="economia">Economia</button>
       <button role="tab" aria-selected="false" data-aba="projetos" id="abaBtnProjetos">Projetos</button>
       <button role="tab" aria-selected="false" data-aba="meus" id="abaBtnMeus" hidden>Meus projetos</button>
-      <button role="tab" aria-selected="false" data-aba="tdah" id="abaBtnTdah" hidden>Modo TDAH</button>
       <button role="tab" aria-selected="false" data-aba="config">Configurações</button>
     </nav>
 
@@ -350,41 +350,6 @@ dialog#dlgDetalhes::backdrop { background: rgba(0,0,0,.55); }
       </div>
     </div>
 
-    <div class="aba" id="aba-tdah">
-      <div class="rolavel texto-tdah">
-        <h3 class="titulo">Modo TDAH: o que muda</h3>
-        <ol>
-          <li>Aparece a aba <b>Meus projetos</b>: um cartão por projeto, com barra de progresso.</li>
-          <li>Os projetos com prioridade <b>alta</b> ficam no topo.</li>
-          <li>Projeto novo nas suas pastas aparece sozinho, marcado como <b>novo</b>.</li>
-          <li>Se um nome parece com outro projeto, o cartão avisa. Antes de criar um projeto, digite o nome e pergunte se já existe parecido.</li>
-          <li>Projeto parado há mais de <b id="txHorasTdah">2</b> horas: o modelo do seu PC resume os últimos commits no cartão.</li>
-          <li>Botão <b>Copiar contexto</b>: um texto curto para colar no Claude e retomar o projeto sem gastar tokens explicando.</li>
-          <li>Uma vez por semana: resumo curto de todos os projetos, para o Claude sugerir prioridades.</li>
-        </ol>
-        <h3 class="titulo">A ficha de cada projeto</h3>
-        <p class="sub" style="margin-top:0">O cartão lê o arquivo <span class="mono">STATUS.md</span> da pasta. Se não existir, o botão <b>Criar ficha</b> faz um rascunho com o modelo local. Campos lidos:</p>
-        <pre class="mono exemplo">Prioridade: alta
-Concluído: 40%
-Próxima ação: terminar a tela de login
-
-## Resumo
-## Pronto
-## Falta</pre>
-        <h3 class="titulo">O que precisa</h3>
-        <div id="reqTdah"></div>
-        <div class="botoes">
-          <label class="linha-chave">Parado depois de <input id="inHorasTdah" class="campo" type="number" min="1" max="72" step="1" value="2" style="width:70px"> horas</label>
-        </div>
-        <div class="botoes">
-          <button class="btn primario" type="button" id="btnAtivarTdah">Ativar Modo TDAH</button>
-          <button class="btn" type="button" id="btnDesativarTdah">Desativar</button>
-          <span class="sub" id="msgTdah"></span>
-        </div>
-        <p class="sub">Nada sai do seu PC. Nenhum arquivo é apagado ou movido; o modo só lê as pastas e cria um STATUS.md quando você pede.</p>
-      </div>
-    </div>
-
     <div class="aba" id="aba-config">
       <div class="rolavel">
         <h3 class="titulo">Modo TDAH</h3>
@@ -393,7 +358,7 @@ Próxima ação: terminar a tela de login
             <label class="linha-chave"><span class="chave"><input type="checkbox" id="ckTdah"><span></span></span> Ativar modo TDAH</label>
             <span class="status" id="stTdah">…</span>
           </div>
-          <p class="sub">Junta todos os seus projetos num lugar só, com progresso e lembretes. <button type="button" class="link" id="btnVerTdah">Ver o que muda</button></p>
+          <p class="sub">Junta todos os seus projetos num lugar só, com progresso e lembretes. <button type="button" class="link" id="btnVerTdah">ⓘ O que é o Modo TDAH?</button></p>
         </div>
         <h3 class="titulo">Tamanho da letra</h3>
         <div class="cartao" style="margin-bottom:20px">
@@ -468,6 +433,45 @@ Próxima ação: terminar a tela de login
   </section>
 </main>
 
+<dialog id="dlgTdah" aria-labelledby="dlgTdahTitulo">
+  <div class="dlg-topo">
+    <h3 class="titulo" id="dlgTdahTitulo" style="margin:0">O que é o Modo TDAH</h3>
+    <button class="btn" type="button" id="dlgTdahFechar">Fechar</button>
+  </div>
+  <div class="dlg-corpo texto-tdah">
+        <h3 class="titulo">O que muda</h3>
+        <ol>
+          <li>Aparece a aba <b>Meus projetos</b>: um cartão por projeto, com barra de progresso.</li>
+          <li>Os projetos com prioridade <b>alta</b> ficam no topo.</li>
+          <li>Projeto novo nas suas pastas aparece sozinho, marcado como <b>novo</b>.</li>
+          <li>Se um nome parece com outro projeto, o cartão avisa. Antes de criar um projeto, digite o nome e pergunte se já existe parecido.</li>
+          <li>Projeto parado há mais de <b id="txHorasTdah">2</b> horas: o modelo do seu PC resume os últimos commits no cartão.</li>
+          <li>Botão <b>Mais informações</b>: para que serve o projeto, em que pé está, o que tem dentro e o histórico.</li>
+          <li>Botão <b>Copiar contexto</b>: um texto curto para colar no Claude e retomar o projeto sem gastar tokens explicando.</li>
+          <li>Uma vez por semana: resumo curto de todos os projetos, para o Claude sugerir prioridades.</li>
+        </ol>
+        <h3 class="titulo">A ficha de cada projeto</h3>
+        <p class="sub" style="margin-top:0">O cartão lê o arquivo <span class="mono">STATUS.md</span> da pasta. Se não existir, o botão <b>Criar ficha</b> faz um rascunho com o modelo local. Campos lidos:</p>
+        <pre class="mono exemplo">Prioridade: alta
+Concluído: 40%
+Próxima ação: terminar a tela de login
+
+## Resumo
+## Pronto
+## Falta</pre>
+        <h3 class="titulo">O que precisa</h3>
+        <div id="reqTdah"></div>
+        <div class="botoes">
+          <label class="linha-chave">Parado depois de <input id="inHorasTdah" class="campo" type="number" min="1" max="72" step="1" value="2" style="width:70px"> horas</label>
+        </div>
+        <div class="botoes">
+          <button class="btn primario" type="button" id="btnAtivarTdah">Ativar Modo TDAH</button>
+          <button class="btn" type="button" id="btnDesativarTdah">Desativar</button>
+          <span class="sub" id="msgTdah"></span>
+        </div>
+        <p class="sub">Nada sai do seu PC. Nenhum arquivo é apagado ou movido; o modo só lê as pastas e cria um STATUS.md quando você pede.</p>
+      </div>
+</dialog>
 <dialog id="dlgDetalhes" aria-labelledby="dlgTitulo">
   <div class="dlg-topo">
     <h3 class="titulo" id="dlgTitulo" style="margin:0">Projeto</h3>
@@ -514,7 +518,7 @@ $("#btnTema").onclick = () => {
 document.querySelectorAll("nav.abas button").forEach((b) => b.onclick = () => {
   document.querySelectorAll("nav.abas button").forEach((x) => x.setAttribute("aria-selected", x === b));
   document.querySelectorAll(".aba").forEach((a) => a.classList.toggle("ativa", a.id === "aba-" + b.dataset.aba));
-  ({ historico: carregarHistorico, economia: carregarEconomia, projetos: carregarProjetos, config: carregarConfig, meus: carregarMeus, tdah: carregarTdah })[b.dataset.aba]?.();
+  ({ historico: carregarHistorico, economia: carregarEconomia, projetos: carregarProjetos, config: carregarConfig, meus: carregarMeus })[b.dataset.aba]?.();
 });
 
 // estado (a cada 3 s)
@@ -771,7 +775,6 @@ function mostrarModo(t) {
   $("#stTdah").className = "status" + (t.ligado ? " ok" : "");
   $("#abaBtnMeus").hidden = !t.ligado;
   $("#abaBtnProjetos").hidden = t.ligado;
-  if (t.ligado) $("#abaBtnTdah").hidden = false;
   $("#inHorasTdah").value = t.parado_horas; $("#txHorasTdah").textContent = t.parado_horas;
   $("#reqTdah").innerHTML = t.requisitos.map((r) =>
     `<div class="req"><span class="status ${r.ok ? "ok" : "erro"}">${r.ok ? "ok" : "falta"}</span>${esc(r.nome)}</div>`).join("");
@@ -783,14 +786,12 @@ async function salvarTdah(ligado) {
     const t = await api("/api/tdah/ligar", { ligado, parado_horas: Number($("#inHorasTdah").value) || 2 });
     mostrarModo(t);
     $("#msgTdah").textContent = ligado ? "Ligado. Veja a aba Meus projetos." : "Desligado.";
-    if (!ligado) { $("#abaBtnTdah").hidden = true; abrirAba("config"); }
   } catch (e) { $("#msgTdah").textContent = "Erro: " + e.message; }
 }
-$("#ckTdah").onchange = (ev) => {
-  if (ev.target.checked) { ev.target.checked = false; $("#abaBtnTdah").hidden = false; abrirAba("tdah"); carregarTdah(); }
-  else salvarTdah(false);
-};
-$("#btnVerTdah").onclick = () => { $("#abaBtnTdah").hidden = false; abrirAba("tdah"); carregarTdah(); };
+$("#ckTdah").onchange = (ev) => salvarTdah(ev.target.checked);
+function abrirInfoTdah() { carregarTdah(); $("#dlgTdah").showModal(); }
+$("#btnVerTdah").onclick = abrirInfoTdah;
+$("#dlgTdahFechar").onclick = () => $("#dlgTdah").close();
 $("#btnAtivarTdah").onclick = () => salvarTdah(true);
 $("#btnDesativarTdah").onclick = () => salvarTdah(false);
 
