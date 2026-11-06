@@ -258,13 +258,62 @@ def alternar_voz() -> bool:
     if pid is not None:
         atalho_voz.pedir_para_parar(pid)
         return False
+    python = Path(sys.executable)
+    if sys.platform == "win32" and python.with_name("pythonw.exe").exists():
+        python = python.with_name("pythonw.exe")  # sem janela preta piscando
+    log = _log_voz()
     subprocess.Popen(  # noqa: S603 - o próprio Python do agente
-        [sys.executable, "-m", "agente.voz.atalho_voz"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        [str(python), "-m", "agente.voz.atalho_voz"],
+        stdout=log,
+        stderr=log,
         start_new_session=True,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
+    if log is not subprocess.DEVNULL:
+        log.close()  # o filho ficou com a própria cópia
     return True
+
+
+def _log_voz() -> Any:  # noqa: ANN401 - arquivo aberto ou DEVNULL
+    """Arquivo onde a gravação escreve os erros (antes iam para o nada)."""
+    try:
+        pasta = Path(carregar_config().pasta_logs)
+        pasta.mkdir(parents=True, exist_ok=True)
+        return (pasta / "voz.log").open("a", encoding="utf-8")
+    except (OSError, ValueError):
+        return subprocess.DEVNULL
+
+
+_atalho_voz_ligado = ""
+
+
+def ligar_atalho_voz(atalho: str) -> bool:
+    """No Windows o próprio painel escuta o atalho de voz (Ctrl+Alt+F) enquanto está no ar.
+    No Linux quem faz isso é o atalho do GNOME, que roda o mesmo script."""
+    global _atalho_voz_ligado
+    if sys.platform != "win32":
+        return False
+    from agente import atalho as atalho_win
+
+    if _atalho_voz_ligado:
+        atalho_win.cancelar(_atalho_voz_ligado)
+        _atalho_voz_ligado = ""
+    if not atalho:
+        return False
+
+    def apertou() -> None:
+        logger.info("atalho de voz %s apertado", atalho)
+        alternar_voz()
+
+    try:
+        ok = atalho_win.registrar(atalho, apertou)
+    except ValueError:
+        logger.warning("atalho de voz inválido no Windows: %s", atalho)
+        return False
+    if ok:
+        _atalho_voz_ligado = atalho
+        logger.info("atalho de voz %s ligado", atalho)
+    return ok
 
 
 # --- servidor -------------------------------------------------------------------------------
@@ -443,12 +492,17 @@ def _config_post(self: _Handler, acao: str, corpo: dict[str, Any]) -> None:
         elif acao == "escolher-pasta":
             self._enviar_json({"pasta": conf.escolher_pasta()})
         elif acao == "atalho":
-            atalho = conf.aplicar_atalho(str(corpo.get("atalho", "")))
+            atalho = conf.aplicar_atalho(str(corpo.get("atalho", "")), caminho_config())
+            if sys.platform == "win32":
+                _recarregar(type(self))
+                if not ligar_atalho_voz(atalho):
+                    raise RuntimeError(f"o Windows recusou {atalho} (outro programa já usa?)")
             self._enviar_json({"ok": True, "atalho": atalho})
         else:
             self.send_error(404)
     except (KeyError, ValueError, RuntimeError, OSError) as exc:
         self._enviar_json({"erro": str(exc)}, 400)
+
 
 
 def estado_tdah(cfg: Config) -> dict[str, Any]:
@@ -517,6 +571,12 @@ def _tdah_post(self: _Handler, acao: str, corpo: dict[str, Any]) -> None:
         self._enviar_json({"erro": str(exc)}, 400)
 
 
+def _caminho_config() -> Path:
+    from agente.config import caminho_config
+
+    return caminho_config()
+
+
 def estado_config(cfg: Config) -> dict[str, Any]:
     from agente import configuracoes as conf
 
@@ -529,7 +589,7 @@ def estado_config(cfg: Config) -> dict[str, Any]:
             "modelos": list(cfg.omniroute.modelos),
             "painel": cfg.omniroute.url.rsplit("/v1", 1)[0],
         },
-        "atalho": {**conf.atalho_atual(), "sugerido": conf.ATALHO_SUGERIDO},
+        "atalho": {**conf.atalho_atual(_caminho_config()), "sugerido": conf.ATALHO_SUGERIDO},
         "pastas": [str(p) for p in cfg.pastas_permitidas],
     }
 
@@ -557,6 +617,8 @@ def servir(cfg: Config | None = None, porta: int = PORTA_PADRAO, abrir: bool = T
     cfg = cfg or carregar_config()
     handler = type("Handler", (_Handler,), {"cfg": cfg})
     servidor = ThreadingHTTPServer(("127.0.0.1", porta), handler)
+    if cfg.voz.atalho:
+        ligar_atalho_voz(cfg.voz.atalho)
     from agente import projetos_tdah
 
     projetos_tdah.vigiar(cfg)  # só trabalha quando o Modo TDAH está ligado
@@ -581,7 +643,21 @@ def abrir() -> None:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO)
+    handlers: list[logging.Handler] = []
+    if sys.stderr is not None:  # o .exe sem console do Windows não tem stderr
+        handlers.append(logging.StreamHandler())
+    try:
+        pasta = Path(carregar_config().pasta_logs)
+        pasta.mkdir(parents=True, exist_ok=True)
+        handlers.append(logging.FileHandler(pasta / "painel.log", encoding="utf-8"))
+    except (OSError, ValueError):
+        pass
+    logging.basicConfig(level=logging.INFO, handlers=handlers or None,
+                        format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    if "--sem-navegador" in sys.argv[1:]:  # logon do Windows: só sobe o painel e o atalho
+        if not no_ar():
+            servir(abrir=False)
+        return
     abrir()
 
 

@@ -203,8 +203,21 @@ def ler_ficha(texto: str) -> dict[str, Any]:
         "porcentagem": pct,
         "proxima": _campo(texto, ("Próxima ação", "Proxima acao", "Próximo passo")),
         "pronto": _secao(texto, ("Pronto", "Feito", "Concluído")),
-        "falta": _secao(texto, FALTA),
+        "falta": _secao(texto, FALTA) or _caixas(texto, marcadas=False),
+        "claude": _link_claude(texto),
     }
+
+
+def _caixas(texto: str, marcadas: bool) -> list[str]:
+    """Itens de lista com caixinha ([x] feitos, [ ] por fazer), em qualquer seção."""
+    marca = r"[xX]" if marcadas else r" "
+    return re.findall(rf"^\s*[-*]\s*\[{marca}\]\s*(.+?)\s*$", texto, re.M)[:8]
+
+
+def _link_claude(texto: str) -> str:
+    """Linha 'Claude: https://claude.ai/...' da ficha: o projeto ou conversa no Claude."""
+    m = re.search(r"https://claude\.ai/\S+", _campo(texto, ("Claude", "Projeto no Claude")))
+    return m.group(0).rstrip(").,") if m else ""
 
 
 FALTA = ("Falta", "Pendente", "A fazer", "Próximos passos", "Next steps", "To do", "TODO")

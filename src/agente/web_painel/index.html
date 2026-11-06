@@ -455,6 +455,7 @@ dialog#dlgDetalhes::backdrop, dialog#dlgTdah::backdrop { background: rgba(0,0,0,
         <pre class="mono exemplo">Prioridade: alta
 Concluído: 40%
 Próxima ação: terminar a tela de login
+Claude: https://claude.ai/project/...   (link do projeto no Claude)
 
 ## Resumo
 ## Pronto
@@ -820,6 +821,7 @@ function cartao(p, i) {
     ${p.resumo_auto ? `<p class="sub"><b>Últimas mudanças</b> (${esc(p.resumo_auto_em)}): ${esc(p.resumo_auto)}</p>` : ""}
     <p class="sub mono">${esc(p.caminho)}</p>
     ${p.github ? `<p class="sub"><a href="${esc(p.github)}" target="_blank" rel="noopener">${esc(p.github)}</a></p>` : ""}
+    ${p.claude ? `<p class="sub"><a href="${esc(p.claude)}" target="_blank" rel="noopener">Abrir no Claude</a></p>` : ""}
     <div class="botoes">
       <button class="btn primario" type="button" data-acao="detalhes">Mais informações</button>
       <button class="btn" type="button" data-acao="contexto">Copiar contexto</button>

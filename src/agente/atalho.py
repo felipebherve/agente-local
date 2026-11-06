@@ -31,23 +31,30 @@ def traduzir(atalho: str) -> tuple[int, int]:
 
 
 def _escutar(
-    mods: int, tecla: int, acao: Callable[[], None], pronto: threading.Event, ok: list[bool]
+    mods: int, tecla: int, acao: Callable[[], None], pronto: threading.Event, ok: list[int]
 ) -> None:
     import ctypes
     from ctypes import wintypes
 
     user32 = ctypes.windll.user32  # type: ignore[attr-defined,unused-ignore]  # só Windows
     ok.append(bool(user32.RegisterHotKey(None, 1, mods, tecla)))
+    ok.append(threading.get_native_id())  # para cancelar() achar a thread
     pronto.set()
     if not ok[0]:
         return
     msg = wintypes.MSG()
-    while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
-        if msg.message == WM_HOTKEY:
-            try:
-                acao()
-            except Exception:  # o atalho não pode morrer por causa de uma ação que falhou
-                logger.exception("ação do atalho falhou")
+    try:
+        while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
+            if msg.message == WM_HOTKEY:
+                try:
+                    acao()
+                except Exception:  # o atalho não pode morrer por causa de uma ação que falhou
+                    logger.exception("ação do atalho falhou")
+    finally:
+        user32.UnregisterHotKey(None, 1)
+
+
+_ativos: dict[str, int] = {}  # atalho -> id da thread que o escuta
 
 
 def registrar(atalho: str, acao: Callable[[], None]) -> bool:
@@ -56,12 +63,23 @@ def registrar(atalho: str, acao: Callable[[], None]) -> bool:
         return False
     mods, tecla = traduzir(atalho)
     pronto = threading.Event()
-    ok: list[bool] = []
+    ok: list[int] = []
     threading.Thread(
         target=_escutar, args=(mods, tecla, acao, pronto, ok), name=f"atalho {atalho}", daemon=True
     ).start()
     pronto.wait(5)
     registrado = bool(ok and ok[0])
-    if not registrado:
+    if registrado:
+        _ativos[atalho] = int(ok[1])
+    else:
         logger.warning("atalho %s indisponível (outro programa já usa?)", atalho)
     return registrado
+
+
+def cancelar(atalho: str) -> None:
+    """Solta um atalho registrado por registrar() (para trocar de tecla sem reiniciar)."""
+    thread = _ativos.pop(atalho, None)
+    if thread is not None and sys.platform == "win32":
+        import ctypes
+
+        ctypes.windll.user32.PostThreadMessageW(thread, 0x0012, 0, 0)  # WM_QUIT

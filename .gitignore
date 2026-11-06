@@ -29,3 +29,10 @@ prints/
 
 # config pessoal de cada um (gerada pelo agente init)
 config.yaml
+
+# coisas pessoais do dono deste PC (nunca vão para o GitHub)
+pessoal/
+STATUS.md
+config.yaml.*
+src/agente/vagas.py
+tests/test_vagas.py

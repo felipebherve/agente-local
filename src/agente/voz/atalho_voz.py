@@ -43,14 +43,64 @@ def notificar(titulo: str, texto: str, segundos: int = 15) -> None:
     curto = texto
     if len(texto) > LIMITE_NOTIFICACAO:
         curto = texto[:LIMITE_NOTIFICACAO] + "… (veja tudo no painel)"
+    if sys.platform == "win32":
+        print(f"{titulo}: {curto}", flush=True)  # vai para logs/voz.log
+        _notificar_windows(titulo, curto)
+        return
     try:
         subprocess.run(
             ["notify-send", "-a", "Agente local", "-r", ID_NOTIFICACAO, "-t", str(segundos * 1000),
              titulo, curto],
             check=False,
         )
-    except FileNotFoundError:  # sem notify-send (ex.: Windows): só imprime
+    except FileNotFoundError:  # sem notify-send: só imprime
         print(f"{titulo}: {curto}")
+
+
+# Notificação do Windows (a "toast" do canto da tela) sem instalar nada: o PowerShell
+# usa a API do próprio Windows. A mesma etiqueta troca a notificação no lugar.
+_WINRT = "ContentType = WindowsRuntime]"
+_TOAST_PS = (
+    "$t = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, "
+    + _WINRT + "\n"
+    + "$x = [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, "
+    + _WINRT + "::new()\n"
+) + r"""
+$xml = '<toast><visual><binding template="ToastGeneric"><text></text><text></text>' +
+  '</binding></visual><audio silent="true"/></toast>'
+$x.LoadXml($xml)
+$n = $x.GetElementsByTagName('text')
+$n.Item(0).AppendChild($x.CreateTextNode($env:AGENTE_TITULO)) | Out-Null
+$n.Item(1).AppendChild($x.CreateTextNode($env:AGENTE_TEXTO)) | Out-Null
+$toast = [Windows.UI.Notifications.ToastNotification]::new($x)
+$toast.Tag = 'agente-voz'; $toast.Group = 'agente-voz'
+$app = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe'
+$t::CreateToastNotifier($app).Show($toast)
+"""
+
+
+def _notificar_windows(titulo: str, texto: str) -> None:
+    env = {**os.environ, "AGENTE_TITULO": titulo, "AGENTE_TEXTO": texto}
+    try:
+        subprocess.Popen(  # noqa: S603 - script fixo; o texto vai por variável de ambiente
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", _TOAST_PS],  # noqa: S607
+            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except OSError:
+        pass
+
+
+def bip(subindo: bool) -> None:
+    """Som curto no Windows: agudo = começou a ouvir, grave = mandou."""
+    if sys.platform != "win32":
+        return
+    try:
+        import winsound
+
+        winsound.Beep(880 if subindo else 440, 120)
+    except (ImportError, RuntimeError):
+        pass
 
 
 def gravando_agora() -> int | None:
@@ -162,10 +212,12 @@ def main() -> None:
     from agente.braco import navegador as braco_navegador
 
     braco_navegador.NAVEGADOR_PROPRIO = True  # este processo termina logo após responder
+    bip(subindo=True)
     notificar("Ouvindo...", "Fale à vontade. Aperte Ctrl+Alt+F de novo para mandar.", int(MAX_S))
     try:
         try:
             ouviu = gravar(cfg)
+            bip(subindo=False)
         finally:
             ARQUIVO_PID.unlink(missing_ok=True)
             ARQUIVO_PARAR.unlink(missing_ok=True)

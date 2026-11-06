@@ -264,3 +264,12 @@ def test_detalhes_guarda_explicacao_e_so_refaz_se_mudar(
     assert card["serve"] == "Vende coisas."
     with pytest.raises(ValueError):
         pt.detalhes(cfg_tdah, "/etc")
+
+
+def test_falta_das_caixinhas_e_link_do_claude() -> None:
+    f = pt.ler_ficha(
+        "# X\n\nClaude: https://claude.ai/project/abc123\n\n## Tarefas\n- [x] a\n- [ ] b\n- [ ] c\n"
+    )
+    assert f["porcentagem"] == 33 and f["falta"] == ["b", "c"]
+    assert f["claude"] == "https://claude.ai/project/abc123"
+    assert pt.ler_ficha("Claude: site falso https://evil.com")["claude"] == ""

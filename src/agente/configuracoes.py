@@ -300,16 +300,12 @@ def comando_voz() -> str:
     return f'"{sys.executable}" -m agente.voz.atalho_voz'
 
 
-def atalho_atual() -> dict[str, str]:
+def atalho_atual(caminho: Path | None = None) -> dict[str, str]:
     """O atalho de voz que o sistema está usando agora."""
     if os.name == "nt":
-        lnk = _lnk_windows()
-        if lnk.exists():
-            r = _rodar(["powershell", "-NoProfile", "-Command",
-                        f"(New-Object -ComObject WScript.Shell).CreateShortcut('{lnk}').Hotkey"])
-            if r is not None and r.stdout.strip():
-                return {"atalho": normalizar_atalho(r.stdout.strip()), "sistema": "windows"}
-        return {"atalho": "", "sistema": "windows"}
+        # No Windows quem escuta o atalho é o próprio painel (RegisterHotKey), lendo o config.
+        atalho = str(ler_bloco(caminho, "voz").get("atalho") or "") if caminho else ""
+        return {"atalho": atalho, "sistema": "windows"}
     if shutil.which("gsettings"):
         item = _gnome_voz()
         if item:
@@ -327,20 +323,22 @@ def _lnk_windows() -> Path:
             / "Programs" / NOME_LNK_WINDOWS)
 
 
-def aplicar_atalho(atalho: str) -> str:
+def aplicar_atalho(atalho: str, caminho: Path | None = None) -> str:
     """Grava o atalho de voz no sistema. Devolve o atalho normalizado."""
     atalho = normalizar_atalho(atalho)
     if os.name == "nt":
-        lnk = _lnk_windows()
-        pythonw = Path(sys.executable).with_name("pythonw.exe")
-        script = (
-            f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{lnk}');"
-            f"$s.TargetPath='{pythonw}';$s.Arguments='-m agente.voz.atalho_voz';"
-            f"$s.Hotkey='{para_windows(atalho)}';$s.Save()"
-        )
-        r = _rodar(["powershell", "-NoProfile", "-Command", script])
-        if r is None or r.returncode != 0:
-            raise RuntimeError("não consegui gravar o atalho do Windows")
+        # A tecla de atalho de um .lnk só funciona às vezes (o Explorer precisa recarregar e
+        # jogos ou apps em foco engolem a tecla). O painel registra o atalho sozinho; aqui só
+        # fica gravado no config.yaml e o .lnk antigo sai para não brigar pela mesma tecla.
+        from agente import atalho as atalho_win
+
+        atalho_win.traduzir(atalho)  # o Windows só aceita letra ou número no fim
+        if caminho is None:
+            raise RuntimeError("falta o caminho do config.yaml")
+        voz = ler_bloco(caminho, "voz")
+        voz["atalho"] = atalho
+        trocar_bloco(caminho, "voz", voz)
+        _lnk_windows().unlink(missing_ok=True)
         return atalho
     if not shutil.which("gsettings"):
         raise RuntimeError("só sei mudar o atalho no GNOME (Ubuntu) e no Windows")
