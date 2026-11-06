@@ -486,14 +486,21 @@ def resumo_semanal(projetos: list[dict[str, Any]]) -> str:
 # --- modelo local --------------------------------------------------------------------------
 
 
-def _modelo(cfg: Config, pergunta: str, modelo: str = "") -> str:
+def _modelo(
+    cfg: Config, pergunta: str, modelo: str = "", sistema: str = "", pensar: bool = False
+) -> str:
+    """Pergunta ao modelo local. pensar=True: raciocina antes (mais lento, responde melhor)."""
     from agente.llm import ClienteOllama, ErroOllama
 
+    if pensar:
+        cliente = ClienteOllama(cfg.ollama_url, max(cfg.timeout_s, 180), cfg.keep_alive, True, 4096)
+    else:
+        cliente = ClienteOllama.de_config(cfg)
     try:
-        r = ClienteOllama.de_config(cfg).conversar(
+        r = cliente.conversar(
             modelo or cfg.modelos.codigo,
             pergunta,
-            sistema="Responda em português do Brasil, curto e simples.",
+            sistema=sistema or "Responda em português do Brasil, curto e simples.",
         )
     except ErroOllama as exc:
         logger.warning("modelo local falhou: %s", exc)
@@ -761,9 +768,12 @@ def _leiame(pasta: Path) -> str:
     return ""
 
 
+VERSAO_EXPLICA = "2"  # mude para refazer todas as explicações guardadas
+
+
 def _assinatura(pasta: Path) -> str:
     """Muda quando o projeto muda de verdade (README, ficha, último commit ou itens do topo)."""
-    partes = [_git(pasta, "rev-parse", "HEAD")]
+    partes = [VERSAO_EXPLICA, _git(pasta, "rev-parse", "HEAD")]
     for nome in (*LEIAME, FICHA):
         try:
             partes.append(str((pasta / nome).stat().st_mtime))
@@ -777,25 +787,84 @@ def _assinatura(pasta: Path) -> str:
 
 
 SISTEMA_EXPLICA = (
-    "Você explica projetos de uma pessoa para ela mesma, que tem TDAH e esquece do que se "
-    "trata cada pasta. Português do Brasil, frases curtas, palavras simples, sem jargão e "
-    "sem markdown. Nunca invente: se não der para saber, diga que não dá."
+    "Você ajuda uma pessoa com TDAH a lembrar do que é cada pasta de projetos do PC dela. "
+    "Escreva em português do Brasil como um amigo explicando, de um jeito natural e atual: "
+    "frases curtas, palavras do dia a dia, sem jargão, sem markdown, sem enrolação e sem "
+    "frases genéricas como 'projeto para desenvolvimento de soluções'. Diga coisas concretas "
+    "(o que faz, para quem, com o quê). Não invente: use só o que está nos arquivos. Se a pasta "
+    "for cópia de um projeto de outra pessoa (driver, biblioteca, repositório baixado), diga isso."
 )
+
+EXEMPLO_EXPLICA = (
+    "Exemplo de resposta boa (para outra pasta):\n"
+    "SERVE: Site da loja de bolos da Ana, com cardápio e pedidos pelo WhatsApp.\n"
+    "EXPLICA: É um site simples em HTML e JavaScript. Mostra os bolos com foto e preço e monta "
+    "a mensagem do pedido. Fica publicado no GitHub Pages.\n"
+    "ESTADO: Já funciona; falta a página de encomendas para festas (está no README)."
+)
+
+
+def _amostra_arquivos(pasta: Path, limite: int = 40) -> list[str]:
+    """Caminhos de até `limite` arquivos, dois níveis abaixo, para o modelo ter uma ideia."""
+    saida: list[str] = []
+    for item in sorted(pasta.iterdir()) if pasta.is_dir() else []:
+        if item.name in PULAR or item.name.startswith("."):
+            continue
+        if item.is_dir():
+            try:
+                filhos = sorted(x.name for x in item.iterdir() if not x.name.startswith("."))
+            except OSError:
+                filhos = []
+            saida.append(f"{item.name}/ ({len(filhos)} itens: {', '.join(filhos[:8])})")
+        else:
+            saida.append(item.name)
+        if len(saida) >= limite:
+            break
+    return saida
+
+
+def _textos_da_pasta(pasta: Path) -> str:
+    """README e STATUS.md da pasta; se só houver uma subpasta, o README dela também."""
+    partes = []
+    leiame = _leiame(pasta)
+    if leiame:
+        partes.append(f"README:\n{leiame[:2500]}")
+    try:
+        partes.append(f"STATUS.md:\n{(pasta / FICHA).read_text(encoding='utf-8-sig')[:1200]}")
+    except OSError:
+        pass
+    try:
+        subpastas = [
+            p
+            for p in pasta.iterdir()
+            if p.is_dir() and p.name not in PULAR and not p.name.startswith(".")
+        ]
+    except OSError:
+        subpastas = []
+    if not leiame and len(subpastas) == 1:
+        dentro = _leiame(subpastas[0])
+        if dentro:
+            partes.append(f"README de {subpastas[0].name}/:\n{dentro[:2500]}")
+    return "\n\n".join(partes) or "(sem README nem STATUS.md)"
 
 
 def explicar(cfg: Config, pasta: Path, mapa: dict[str, Any], git: dict[str, Any]) -> dict[str, str]:
     """Pede ao modelo local: para que serve (1 frase) e uma explicação um pouco maior."""
-    itens = ", ".join(i["nome"] for i in mapa["itens"][:20])
-    commits = "; ".join(c.get("msg", "") for c in git.get("ultimos", []))
+    commits = "; ".join(f"{c.get('data', '')} {c.get('msg', '')}" for c in git.get("ultimos", []))
+    tipos = ", ".join(f"{x['tipo']} ({x['quantos']})" for x in mapa["tipos"])
     pergunta = (
-        f"Projeto: {pasta.name}\nItens da pasta: {itens}\nÚltimos commits: {commits or 'sem Git'}\n"
-        f"README (início):\n{_leiame(pasta)[:2500] or '(sem README)'}\n\n"
-        "Responda exatamente em 3 linhas, cada uma começando pelo rótulo:\n"
-        "SERVE: para que serve, em UMA frase de até 20 palavras.\n"
-        "EXPLICA: o que é e como funciona, em até 3 frases.\n"
-        "ESTADO: em que pé está e o que parece faltar, em UMA frase."
+        f"Pasta: {pasta.name}\n"
+        f"Arquivos: {'; '.join(_amostra_arquivos(pasta))}\n"
+        f"Tipos mais comuns: {tipos}\n"
+        f"Últimos commits: {commits or 'sem Git'}\n\n"
+        f"{_textos_da_pasta(pasta)}\n\n"
+        f"{EXEMPLO_EXPLICA}\n\n"
+        "Agora responda sobre a pasta acima, exatamente em 3 linhas com estes rótulos:\n"
+        "SERVE: para que serve, em UMA frase concreta de até 20 palavras.\n"
+        "EXPLICA: o que é e como funciona, em 2 ou 3 frases curtas.\n"
+        "ESTADO: em que pé está e o próximo passo, em UMA frase (se não der para saber, diga isso)."
     )
-    texto = _modelo(cfg, pergunta, cfg.modelos.cerebro)
+    texto = _modelo(cfg, pergunta, cfg.modelos.cerebro, SISTEMA_EXPLICA, pensar=True)
     texto = re.sub(r"<think>.*?</think>", "", texto, flags=re.S)
     saida = {"serve": "", "explica": "", "estado": ""}
     for rotulo, chave in (("SERVE", "serve"), ("EXPLICA", "explica"), ("ESTADO", "estado")):

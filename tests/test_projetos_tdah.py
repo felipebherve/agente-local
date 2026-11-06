@@ -240,7 +240,7 @@ def test_detalhes_guarda_explicacao_e_so_refaz_se_mudar(
 ) -> None:
     chamadas: list[str] = []
 
-    def modelo(_cfg: Config, pergunta: str, _m: str = "") -> str:
+    def modelo(_cfg: Config, pergunta: str, *_a: object, **_k: object) -> str:
         chamadas.append(pergunta)
         return "<think>hm</think>SERVE: Vende **coisas**.\nEXPLICA: Um site.\nESTADO: Quase pronto."
 
