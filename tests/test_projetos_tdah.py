@@ -209,3 +209,27 @@ def test_uma_rodada_resume_no_maximo_dois(
     monkeypatch.setattr(pt, "resumir_commits", lambda _c, cam: feitos.append(cam) or "")
     pt.uma_rodada(cfg_tdah, agora=time.time())
     assert feitos == ["/p0", "/p1"]
+
+
+def test_sem_ficha_usa_readme_e_lista_o_que_tem(tmp_path: Path) -> None:
+    api = tmp_path / "api"
+    api.mkdir()
+    (api / "README.md").write_text(
+        "﻿# API\n\n🔗 site\n\nUma API de tarefas.\n\n## Próximos passos\n\n- Paginação\n",
+        encoding="utf-8",
+    )
+    f = pt.ficha_do_leiame(api)
+    assert f["resumo"] == "Uma API de tarefas." and f["falta"] == ["Paginação"]
+    drv = tmp_path / "drivers"
+    (drv / "8821cu").mkdir(parents=True)
+    assert "8821cu/" in pt.ficha_do_leiame(drv)["resumo"]
+    (tmp_path / "vazia").mkdir()
+    assert pt.ficha_do_leiame(tmp_path / "vazia")["resumo"] == "Pasta vazia."
+
+
+def test_status_sem_resumo_prefere_readme(cfg_tdah: Config) -> None:
+    loja = cfg_tdah.pastas_permitidas[0] / "loja"
+    (loja / "STATUS.md").write_text("# Loja\n\nAtualizado em 2026-10-26.\n\nConcluído: 50%\n")
+    (loja / "README.md").write_text("# Loja\n\nSite de vendas.\n", encoding="utf-8")
+    p = next(x for x in pt.escanear(cfg_tdah) if x["nome"] == "loja")
+    assert p["resumo"] == "Site de vendas." and p["porcentagem"] == 50

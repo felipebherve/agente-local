@@ -195,16 +195,58 @@ def ler_ficha(texto: str) -> dict[str, Any]:
     prio = normalizar(_campo(texto, ("Prioridade",)))
     resumo = _secao(texto, ("Resumo",))
     if not resumo:
-        paragrafos = [p.strip() for p in texto.split("\n\n") if p.strip() and not p.startswith("#")]
-        resumo = paragrafos[:1]
+        resumo = [p for p in (x.strip() for x in texto.split("\n\n")) if _e_frase(p)][:1]
     return {
-        "resumo": " ".join(resumo)[:400],
+        "resumo": re.sub(r"\*\*|__|`", "", " ".join(" ".join(resumo).split()))[:400],
         "prioridade": prio if prio in PRIORIDADES else "",
         "porcentagem": pct,
         "proxima": _campo(texto, ("Próxima ação", "Proxima acao", "Próximo passo")),
         "pronto": _secao(texto, ("Pronto", "Feito", "Concluído")),
-        "falta": _secao(texto, ("Falta", "Pendente", "A fazer")),
+        "falta": _secao(texto, FALTA),
     }
+
+
+FALTA = ("Falta", "Pendente", "A fazer", "Próximos passos", "Next steps", "To do", "TODO")
+LEIAME = ("README.pt-BR.md", "README.md", "readme.md", "LEIAME.md")
+
+
+def _e_frase(paragrafo: str) -> bool:
+    """Parágrafo que explica algo (não é título, lista, tabela, selo, link solto ou data)."""
+    if not paragrafo or paragrafo[0] in "#-*|>!<[`🇺🇧🔗":
+        return False
+    return not re.match(r"(Atualizado|Updated|Última atualização)\b", paragrafo, re.I)
+
+
+def ficha_do_leiame(pasta: Path) -> dict[str, Any]:
+    """Sem STATUS.md: resumo e o que falta tirados do README (a porcentagem fica vazia)."""
+    for nome in LEIAME:
+        try:
+            texto = (pasta / nome).read_text(encoding="utf-8-sig", errors="replace")
+        except OSError:
+            continue
+        f = ler_ficha(texto)
+        return {**ler_ficha(""), "resumo": f["resumo"], "falta": f["falta"]}
+    return {**ler_ficha(""), "resumo": _o_que_tem(pasta)}
+
+
+def _o_que_tem(pasta: Path) -> str:
+    """Sem README nem ficha: o título do primeiro .md e o que há na pasta, para lembrar."""
+    try:
+        itens = sorted(p for p in pasta.iterdir() if not p.name.startswith("."))
+    except OSError:
+        return ""
+    if not itens:
+        return t("pasta_vazia")
+    titulo = ""
+    for md in (p for p in itens if p.suffix.lower() == ".md"):
+        try:
+            primeira = md.read_text(encoding="utf-8-sig", errors="replace").lstrip().splitlines()[0]
+        except (OSError, IndexError):
+            continue
+        titulo = primeira.lstrip("# ").strip()
+        break
+    nomes = ", ".join(p.name + ("/" if p.is_dir() else "") for p in itens[:5])
+    return t("sem_leiame", titulo=f"{titulo}. " if titulo else "", nomes=nomes)
 
 
 # --- git -----------------------------------------------------------------------------------
@@ -331,10 +373,13 @@ def _escanear(cfg: Config, agora: float, parado_horas: float) -> list[dict[str, 
         info = projetos_reg.setdefault(chave, {"visto_em": agora, "novo": not primeira_vez})
         ficha_arq = pasta / FICHA
         try:
-            ficha = ler_ficha(ficha_arq.read_text(encoding="utf-8", errors="replace"))
+            texto_ficha = ficha_arq.read_text(encoding="utf-8-sig", errors="replace")
+            ficha = ler_ficha(texto_ficha)
             tem_ficha = True
+            if not _secao(texto_ficha, ("Resumo",)):  # sem "## Resumo": o README explica melhor
+                ficha["resumo"] = ficha_do_leiame(pasta)["resumo"] or ficha["resumo"]
         except OSError:
-            ficha = ler_ficha("")
+            ficha = ficha_do_leiame(pasta)
             tem_ficha = False
         mudou = ultima_mudanca(pasta)
         parado_h = (agora - mudou) / 3600
@@ -394,7 +439,7 @@ def checar_nome(cfg: Config, nome: str) -> str:
     for n in achados[:5]:
         pasta = pastas[n]
         try:
-            ficha = ler_ficha((pasta / FICHA).read_text(encoding="utf-8", errors="replace"))
+            ficha = ler_ficha((pasta / FICHA).read_text(encoding="utf-8-sig", errors="replace"))
         except OSError:
             ficha = ler_ficha("")
         extra = f", {ficha['porcentagem']}% pronto" if ficha.get("porcentagem") is not None else ""
@@ -482,7 +527,7 @@ def criar_ficha(cfg: Config, caminho: str) -> Path:
     base = ""
     for nome in ("README.md", "README.pt-BR.md", "readme.md"):
         try:
-            base = (pasta / nome).read_text(encoding="utf-8", errors="replace")[:3000]
+            base = (pasta / nome).read_text(encoding="utf-8-sig", errors="replace")[:3000]
             break
         except OSError:
             continue

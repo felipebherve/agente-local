@@ -36,6 +36,8 @@ TEXTOS: dict[str, dict[str, str]] = {
         "sem_prioridade": "sem prioridade",
         "sem_proxima": "sem próxima ação",
         "parado": "parado {h:.0f}h",
+        "pasta_vazia": "Pasta vazia.",
+        "sem_leiame": "Sem README nem STATUS.md. {titulo}Contém: {nomes}",
         "ficha_resumo_vazio": "Escreva aqui em 3 linhas o que é o projeto.",
     },
 }
