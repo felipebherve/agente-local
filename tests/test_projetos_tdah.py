@@ -233,3 +233,34 @@ def test_status_sem_resumo_prefere_readme(cfg_tdah: Config) -> None:
     (loja / "README.md").write_text("# Loja\n\nSite de vendas.\n", encoding="utf-8")
     p = next(x for x in pt.escanear(cfg_tdah) if x["nome"] == "loja")
     assert p["resumo"] == "Site de vendas." and p["porcentagem"] == 50
+
+
+def test_detalhes_guarda_explicacao_e_so_refaz_se_mudar(
+    cfg_tdah: Config, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    chamadas: list[str] = []
+
+    def modelo(_cfg: Config, pergunta: str, _m: str = "") -> str:
+        chamadas.append(pergunta)
+        return "<think>hm</think>SERVE: Vende **coisas**.\nEXPLICA: Um site.\nESTADO: Quase pronto."
+
+    monkeypatch.setattr(pt, "_modelo", modelo)
+    loja = str(cfg_tdah.pastas_permitidas[0] / "loja")
+    d = pt.detalhes(cfg_tdah, loja)
+    assert d["explicacao"] == {
+        "serve": "Vende coisas.",
+        "explica": "Um site.",
+        "estado": "Quase pronto.",
+    }
+    assert d["mapa"]["arquivos"] == 1 and d["mapa"]["itens"][0]["nome"] == "STATUS.md"
+    assert "Site de vendas" in d["leiame"]  # sem README, usa o primeiro .md
+    pt.detalhes(cfg_tdah, loja)
+    assert len(chamadas) == 1  # guardada
+    (cfg_tdah.pastas_permitidas[0] / "loja" / "novo.py").write_text("x")
+    pt.detalhes(cfg_tdah, loja)
+    assert len(chamadas) == 2  # a pasta mudou
+    pt.limpar_cache()
+    card = next(p for p in pt.escanear(cfg_tdah) if p["nome"] == "loja")
+    assert card["serve"] == "Vende coisas."
+    with pytest.raises(ValueError):
+        pt.detalhes(cfg_tdah, "/etc")

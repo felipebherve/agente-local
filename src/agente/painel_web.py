@@ -501,6 +501,8 @@ def _tdah_post(self: _Handler, acao: str, corpo: dict[str, Any]) -> None:
             raise ValueError(t("erro_nao_achado"))
         if acao == "contexto":
             self._enviar_json({"texto": pt.contexto(projeto)})
+        elif acao == "detalhes":
+            self._enviar_json(pt.detalhes(self.cfg, caminho, bool(corpo.get("refazer"))))
         elif acao == "visto":
             pt.marcar_visto(self.cfg, caminho)
             self._enviar_json({"ok": True})

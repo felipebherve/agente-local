@@ -217,6 +217,16 @@ button.link { border: 0; background: none; color: var(--acento); padding: 0; fon
 a, a:visited { color: var(--acento); }
 a:hover { text-decoration-thickness: 2px; }
 .btn, .btn:visited { color: inherit; }
+dialog#dlgDetalhes { width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 48px); border: 1px solid var(--borda); border-radius: 12px; background: var(--painel); color: var(--texto); padding: 0; }
+dialog#dlgDetalhes::backdrop { background: rgba(0,0,0,.55); }
+.dlg-topo { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--borda); position: sticky; top: 0; background: var(--painel); }
+.dlg-corpo { padding: 16px 20px 24px; overflow: auto; }
+.dlg-corpo h4 { margin: 20px 0 8px; font-size: calc(14px * var(--escala)); }
+.dlg-corpo p { margin: 0 0 8px; }
+.dlg-corpo .serve { font-size: calc(17px * var(--escala)); font-weight: 600; }
+.dlg-corpo ul { margin: 0; padding-left: 20px; }
+.dlg-corpo table td, .dlg-corpo table th { padding: 4px 8px; }
+.dlg-corpo pre { white-space: pre-wrap; background: var(--painel-2); border-radius: 8px; padding: 12px; font-size: calc(13px * var(--escala)); max-height: 320px; overflow: auto; }
 </style>
 </head>
 <body>
@@ -458,6 +468,13 @@ Próxima ação: terminar a tela de login
   </section>
 </main>
 
+<dialog id="dlgDetalhes" aria-labelledby="dlgTitulo">
+  <div class="dlg-topo">
+    <h3 class="titulo" id="dlgTitulo" style="margin:0">Projeto</h3>
+    <button class="btn" type="button" id="dlgFechar">Fechar</button>
+  </div>
+  <div id="dlgCorpo" class="dlg-corpo"></div>
+</dialog>
 <script>
 // tamanho da letra (guardado só neste navegador)
 (() => {
@@ -796,14 +813,15 @@ function cartao(p, i) {
     <div class="topo"><b>${esc(p.nome)}</b><span class="sub">${pct == null ? "sem %" : pct + "%"}</span></div>
     <div class="barra"><i style="width:${pct || 0}%"></i></div>
     <div class="selos">${selos}</div>
-    ${p.resumo ? `<p class="sub">${esc(p.resumo)}</p>` : ""}
+    ${p.serve || p.resumo ? `<p class="sub">${esc(p.serve || p.resumo)}</p>` : ""}
     ${p.proxima ? `<p class="sub"><b>Próxima ação:</b> ${esc(p.proxima)}</p>` : ""}
     ${lista("Falta", p.falta)}
     ${p.resumo_auto ? `<p class="sub"><b>Últimas mudanças</b> (${esc(p.resumo_auto_em)}): ${esc(p.resumo_auto)}</p>` : ""}
     <p class="sub mono">${esc(p.caminho)}</p>
     ${p.github ? `<p class="sub"><a href="${esc(p.github)}" target="_blank" rel="noopener">${esc(p.github)}</a></p>` : ""}
     <div class="botoes">
-      <button class="btn primario" type="button" data-acao="contexto">Copiar contexto</button>
+      <button class="btn primario" type="button" data-acao="detalhes">Mais informações</button>
+      <button class="btn" type="button" data-acao="contexto">Copiar contexto</button>
       ${p.tem_ficha ? "" : '<button class="btn" type="button" data-acao="ficha">Criar ficha</button>'}
       ${p.git ? '<button class="btn" type="button" data-acao="resumir">Resumir commits</button>' : ""}
       ${p.novo ? '<button class="btn" type="button" data-acao="visto">Já vi</button>' : ""}
@@ -812,6 +830,38 @@ function cartao(p, i) {
   </div>`;
 }
 let meus = [];
+async function abrirDetalhes(p, refazer = false) {
+  const dlg = $("#dlgDetalhes"); const corpo = $("#dlgCorpo");
+  $("#dlgTitulo").textContent = p.nome;
+  corpo.innerHTML = '<p class="sub">Lendo a pasta e pedindo a explicação ao modelo local (pode levar uns segundos)...</p>';
+  if (!dlg.open) dlg.showModal();
+  try {
+    const d = await api("/api/tdah/detalhes", { caminho: p.caminho, refazer });
+    const e = d.explicacao, m = d.mapa, g = d.git;
+    const linhas = m.itens.map((i) => `<tr><td class="mono">${esc(i.nome)}</td><td>${i.pasta ? i.arquivos + " arquivos" : ""}</td><td>${esc(i.tamanho)}</td></tr>`).join("");
+    corpo.innerHTML = `
+      ${e.serve ? `<p class="serve">${esc(e.serve)}</p>` : '<p class="sub">O modelo local não respondeu. Confira se o Ollama está no ar e tente de novo.</p>'}
+      ${e.explica ? `<h4>O que é</h4><p>${esc(e.explica)}</p>` : ""}
+      ${e.estado ? `<h4>Em que pé está</h4><p>${esc(e.estado)}</p>` : ""}
+      <p class="sub"><button type="button" class="link" id="dlgRefazer">Refazer explicação</button> · feita no seu PC pelo modelo local</p>
+      <h4>O que tem dentro</h4>
+      <p class="sub">${m.arquivos} arquivos, ${esc(m.tamanho)}${m.tipos.length ? " · mais comuns: " + m.tipos.map((t) => `${esc(t.tipo)} (${t.quantos})`).join(", ") : ""}</p>
+      ${linhas ? `<table><thead><tr><th>Item</th><th>Conteúdo</th><th>Tamanho</th></tr></thead><tbody>${linhas}</tbody></table>` : '<p class="sub">Pasta vazia.</p>'}
+      ${m.mais_itens ? `<p class="sub">e mais ${m.mais_itens} itens.</p>` : ""}
+      ${g.branch !== undefined ? `<h4>Histórico (Git)</h4>
+        <p class="sub">${esc(g.total)} commits${g.primeiro.length ? ", desde " + esc(g.primeiro[0]) : ""} · branch ${esc(g.branch || "?")}${g.pendentes ? ` · <b>${g.pendentes} arquivos alterados sem commit</b>` : ""}</p>
+        <ul>${g.ultimos.map((c) => `<li><span class="sub">${esc(c.data || "")}</span> ${esc(c.msg || "")}</li>`).join("")}</ul>
+        ${g.github ? `<p class="sub"><a href="${esc(g.github)}" target="_blank" rel="noopener">${esc(g.github)}</a></p>` : ""}` : '<h4>Histórico</h4><p class="sub">Sem Git nesta pasta.</p>'}
+      <h4>README</h4>
+      ${d.tem_leiame ? `<pre>${esc(d.leiame)}</pre>` : '<p class="sub">Sem README.</p>'}
+      <p class="sub mono">${esc(d.caminho)}</p>`;
+    $("#dlgRefazer").onclick = () => abrirDetalhes(p, true);
+    if (e.serve) { p.serve = e.serve; }
+  } catch (err) {
+    corpo.innerHTML = `<p class="sub">Não consegui ler: ${esc(String(err.message || err))}</p>`;
+  }
+}
+$("#dlgFechar").onclick = () => { $("#dlgDetalhes").close(); $("#cartoesMeus").innerHTML = meus.map(cartao).join(""); };
 async function carregarMeus() {
   $("#msgMeus").textContent = "Lendo as pastas...";
   const t = await carregarTdah();
@@ -825,6 +875,7 @@ $("#cartoesMeus").onclick = async (ev) => {
   const acao = b.dataset.acao;
   msg.textContent = acao === "contexto" ? "" : "Trabalhando no seu PC...";
   try {
+    if (acao === "detalhes") { msg.textContent = ""; return abrirDetalhes(p); }
     const r = await api("/api/tdah/" + acao, { caminho: p.caminho });
     if (acao === "contexto") return copiar(r.texto, msg);
     if (acao === "resumir") { msg.textContent = ""; }

@@ -14,6 +14,7 @@ Tudo roda no PC. O Claude só recebe o texto que você copiar.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -397,6 +398,9 @@ def _escanear(cfg: Config, agora: float, parado_horas: float) -> list[dict[str, 
                 "novo": bool(info.get("novo")),
                 "parecido_com": parecidos(pasta.name, nomes),
                 "resumo_auto": str(info.get("resumo_auto", "")),
+                "serve": str((info.get("explicacao") or {}).get("serve", ""))
+                if isinstance(info.get("explicacao"), dict)
+                else "",
                 "resumo_auto_em": str(info.get("resumo_auto_em", "")),
             }
         )
@@ -482,12 +486,12 @@ def resumo_semanal(projetos: list[dict[str, Any]]) -> str:
 # --- modelo local --------------------------------------------------------------------------
 
 
-def _modelo(cfg: Config, pergunta: str) -> str:
+def _modelo(cfg: Config, pergunta: str, modelo: str = "") -> str:
     from agente.llm import ClienteOllama, ErroOllama
 
     try:
         r = ClienteOllama.de_config(cfg).conversar(
-            cfg.modelos.codigo,
+            modelo or cfg.modelos.codigo,
             pergunta,
             sistema="Responda em português do Brasil, curto e simples.",
         )
@@ -503,7 +507,11 @@ def resumir_commits(cfg: Config, caminho: str) -> str:
     log = _git(pasta, "log", "-15", "--format=%ad %s", "--date=short")
     if not log:
         return ""
-    texto = _modelo(cfg, f"Resuma em até 3 frases o que mudou neste projeto:\n{log}")
+    texto = _modelo(
+        cfg,
+        "Em UMA frase curta (até 25 palavras), sem introdução, diga o que mudou por "
+        f"último neste projeto. Fale do que a pessoa ganhou, não de arquivos:\n{log}",
+    )
     if texto:
         with _TRAVA:
             reg = ler_registro(cfg)
@@ -572,6 +580,12 @@ def uma_rodada(cfg: Config, agora: float | None = None) -> None:
         if p["git"] and p["parado"] and mudou > ultimo:
             resumir_commits(cfg, p["caminho"])
             feitos += 1
+    for p in projetos:  # quem ainda não tem "para que serve" ganha um, aos poucos
+        if feitos >= RESUMOS_POR_RODADA:
+            break
+        if not p.get("serve"):
+            detalhes(cfg, p["caminho"])
+            feitos += 1
     with _TRAVA:
         reg = ler_registro(cfg)
         if agora - float(reg.get("semanal_ts", 0)) < SEMANA_S:
@@ -632,3 +646,196 @@ def vigiar(
     t = threading.Thread(target=laco, name="vigia-tdah", daemon=True)
     t.start()
     return t
+
+
+# --- mais informações ------------------------------------------------------------------------
+
+PULAR = IGNORAR | {".git", ".idea", ".vscode", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
+
+
+def _tamanho(n: float) -> str:
+    for unidade in ("B", "KB", "MB", "GB"):
+        if n < 1024 or unidade == "GB":
+            return f"{n:.0f} {unidade}" if unidade == "B" else f"{n:.1f} {unidade}"
+        n /= 1024
+    return ""
+
+
+def _contar(pasta: Path, limite: int = 5000) -> tuple[int, int, dict[str, int]]:
+    """Arquivos, bytes e extensões dentro de `pasta` (para no `limite` de arquivos)."""
+    arquivos = tamanho = 0
+    tipos: dict[str, int] = {}
+    pilha = [pasta]
+    while pilha and arquivos < limite:
+        atual = pilha.pop()
+        try:
+            itens = list(atual.iterdir())
+        except OSError:
+            continue
+        for item in itens:
+            if item.name in PULAR or item.name.startswith("."):
+                continue
+            try:
+                if item.is_symlink():
+                    continue
+                if item.is_dir():
+                    pilha.append(item)
+                else:
+                    arquivos += 1
+                    tamanho += item.stat().st_size
+                    ext = item.suffix.lower() or "(sem extensão)"
+                    tipos[ext] = tipos.get(ext, 0) + 1
+            except OSError:
+                continue
+    return arquivos, tamanho, tipos
+
+
+def mapa_pasta(pasta: Path) -> dict[str, Any]:
+    """O que tem na pasta: cada item do topo com tamanho, e os tipos de arquivo mais comuns."""
+    itens: list[dict[str, Any]] = []
+    total_arq = total_bytes = 0
+    tipos: dict[str, int] = {}
+    try:
+        topo = sorted(pasta.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
+    except OSError:
+        topo = []
+    for item in topo:
+        if item.name in PULAR or item.name.startswith("."):
+            continue
+        if item.is_dir():
+            n, b, t_ = _contar(item)
+            for k, v in t_.items():
+                tipos[k] = tipos.get(k, 0) + v
+            itens.append(
+                {"nome": item.name + "/", "pasta": True, "arquivos": n, "tamanho": _tamanho(b)}
+            )
+        else:
+            try:
+                n, b = 1, item.stat().st_size
+            except OSError:
+                continue
+            ext = item.suffix.lower() or "(sem extensão)"
+            tipos[ext] = tipos.get(ext, 0) + 1
+            itens.append({"nome": item.name, "pasta": False, "arquivos": 1, "tamanho": _tamanho(b)})
+        total_arq += n
+        total_bytes += b
+    comuns = sorted(tipos.items(), key=lambda kv: -kv[1])[:8]
+    return {
+        "itens": itens[:40],
+        "mais_itens": max(0, len(itens) - 40),
+        "arquivos": total_arq,
+        "tamanho": _tamanho(total_bytes),
+        "tipos": [{"tipo": k, "quantos": v} for k, v in comuns],
+    }
+
+
+def info_git(pasta: Path) -> dict[str, Any]:
+    if not (pasta / ".git").exists():
+        return {}
+    commits = _git(pasta, "log", "-6", "--format=%ad|%s", "--date=format:%d/%m/%Y")
+    return {
+        "branch": _git(pasta, "branch", "--show-current"),
+        "total": _git(pasta, "rev-list", "--count", "HEAD"),
+        "primeiro": _git(
+            pasta, "log", "--reverse", "--format=%ad", "--date=format:%d/%m/%Y"
+        ).splitlines()[:1],
+        "ultimos": [
+            dict(zip(("data", "msg"), c.split("|", 1), strict=False)) for c in commits.splitlines()
+        ],
+        "pendentes": len(_git(pasta, "status", "--porcelain").splitlines()),
+        "github": link_github(pasta),
+    }
+
+
+def _leiame(pasta: Path) -> str:
+    """O README; sem ele, o primeiro .md do topo da pasta (ex.: requisitos.md)."""
+    try:
+        outros = sorted(p.name for p in pasta.iterdir() if p.suffix.lower() == ".md")
+    except OSError:
+        outros = []
+    for nome in (*LEIAME, *outros):
+        try:
+            return (pasta / nome).read_text(encoding="utf-8-sig", errors="replace")
+        except OSError:
+            continue
+    return ""
+
+
+def _assinatura(pasta: Path) -> str:
+    """Muda quando o projeto muda de verdade (README, ficha, último commit ou itens do topo)."""
+    partes = [_git(pasta, "rev-parse", "HEAD")]
+    for nome in (*LEIAME, FICHA):
+        try:
+            partes.append(str((pasta / nome).stat().st_mtime))
+        except OSError:
+            continue
+    try:
+        partes.append(",".join(sorted(p.name for p in pasta.iterdir())))
+    except OSError:
+        pass
+    return hashlib.sha1("|".join(partes).encode()).hexdigest()[:16]  # noqa: S324 - não é senha
+
+
+SISTEMA_EXPLICA = (
+    "Você explica projetos de uma pessoa para ela mesma, que tem TDAH e esquece do que se "
+    "trata cada pasta. Português do Brasil, frases curtas, palavras simples, sem jargão e "
+    "sem markdown. Nunca invente: se não der para saber, diga que não dá."
+)
+
+
+def explicar(cfg: Config, pasta: Path, mapa: dict[str, Any], git: dict[str, Any]) -> dict[str, str]:
+    """Pede ao modelo local: para que serve (1 frase) e uma explicação um pouco maior."""
+    itens = ", ".join(i["nome"] for i in mapa["itens"][:20])
+    commits = "; ".join(c.get("msg", "") for c in git.get("ultimos", []))
+    pergunta = (
+        f"Projeto: {pasta.name}\nItens da pasta: {itens}\nÚltimos commits: {commits or 'sem Git'}\n"
+        f"README (início):\n{_leiame(pasta)[:2500] or '(sem README)'}\n\n"
+        "Responda exatamente em 3 linhas, cada uma começando pelo rótulo:\n"
+        "SERVE: para que serve, em UMA frase de até 20 palavras.\n"
+        "EXPLICA: o que é e como funciona, em até 3 frases.\n"
+        "ESTADO: em que pé está e o que parece faltar, em UMA frase."
+    )
+    texto = _modelo(cfg, pergunta, cfg.modelos.cerebro)
+    texto = re.sub(r"<think>.*?</think>", "", texto, flags=re.S)
+    saida = {"serve": "", "explica": "", "estado": ""}
+    for rotulo, chave in (("SERVE", "serve"), ("EXPLICA", "explica"), ("ESTADO", "estado")):
+        m = re.search(
+            rf"{rotulo}\s*:\s*(.+?)(?=\n\s*(SERVE|EXPLICA|ESTADO)\s*:|\Z)", texto, re.S | re.I
+        )
+        if m:
+            saida[chave] = re.sub(r"\*\*|`", "", " ".join(m.group(1).split()))[:500]
+    return saida
+
+
+def detalhes(cfg: Config, caminho: str, refazer: bool = False) -> dict[str, Any]:
+    """Tudo sobre um projeto para o botão "Mais informações". A explicação fica guardada e
+    só é refeita quando o projeto muda (ou se pedir `refazer`)."""
+    pasta = Path(caminho)
+    if not any(pasta.resolve().is_relative_to(r.resolve()) for r in cfg.pastas_permitidas):
+        raise ValueError(t("erro_fora"))
+    mapa = mapa_pasta(pasta)
+    git = info_git(pasta)
+    assinatura = _assinatura(pasta)
+    info = ler_registro(cfg).get("projetos", {}).get(caminho, {})
+    expl = info.get("explicacao") if isinstance(info.get("explicacao"), dict) else None
+    if refazer or not expl or info.get("explicacao_assinatura") != assinatura:
+        novo = explicar(cfg, pasta, mapa, git)
+        if novo["serve"]:
+            expl = novo
+            with _TRAVA:
+                reg = ler_registro(cfg)
+                guardado = reg.setdefault("projetos", {}).setdefault(caminho, {})
+                guardado["explicacao"] = expl
+                guardado["explicacao_assinatura"] = assinatura
+                salvar_registro(cfg, reg)
+            limpar_cache()
+    leiame = _leiame(pasta)
+    return {
+        "nome": pasta.name,
+        "caminho": caminho,
+        "explicacao": expl or {"serve": "", "explica": "", "estado": ""},
+        "mapa": mapa,
+        "git": git,
+        "leiame": leiame[:3000],
+        "tem_leiame": bool(leiame),
+    }
