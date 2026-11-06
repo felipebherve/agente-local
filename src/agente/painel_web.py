@@ -293,6 +293,20 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(dados)
 
+    def _de_fora(self) -> bool:
+        """True se o pedido não veio do próprio painel.
+
+        Bloqueia outro site aberto no navegador (CSRF) e nomes falsos apontando para
+        127.0.0.1 (DNS rebinding): o Host tem de ser o do painel e, se o navegador mandar
+        Origin, ela também.
+        """
+        porta = int(getattr(self.server, "server_port", 0))
+        locais = {f"127.0.0.1:{porta}", f"localhost:{porta}"}
+        if self.headers.get("Host", "") not in locais:
+            return True
+        origem = self.headers.get("Origin")
+        return origem is not None and origem not in {f"http://{h}" for h in locais}
+
     def _ler_corpo(self) -> dict[str, Any]:
         tamanho = int(self.headers.get("Content-Length", "0"))
         corpo = json.loads(self.rfile.read(tamanho).decode("utf-8") or "{}")
@@ -302,6 +316,9 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - nome exigido pelo http.server
         cfg = self.cfg
+        if self._de_fora():
+            self.send_error(403)
+            return
         if self.path in ("/", "/index.html"):
             self._enviar_arquivo(PASTA_WEB / "index.html", "text/html; charset=utf-8")
         elif self.path == "/api/estado":
@@ -338,10 +355,17 @@ class _Handler(BaseHTTPRequestHandler):
             self._enviar_json({"projetos": listar_projetos(cfg)})
         elif self.path == "/api/config":
             self._enviar_json(estado_config(cfg))
+        elif self.path == "/api/tdah":
+            self._enviar_json(estado_tdah(cfg))
         else:
             self.send_error(404)
 
     def do_POST(self) -> None:  # noqa: N802
+        tipo = self.headers.get("Content-Type", "").split(";")[0].strip()
+        if self._de_fora() or tipo != "application/json":
+            # formulário de outro site não consegue mandar application/json sem permissão
+            self.send_error(403)
+            return
         try:
             corpo = self._ler_corpo()
         except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
@@ -373,6 +397,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._enviar_json({"gravando": alternar_voz()})
         elif self.path.startswith("/api/config/"):
             _config_post(self, self.path.removeprefix("/api/config/"), corpo)
+        elif self.path.startswith("/api/tdah/"):
+            _tdah_post(self, self.path.removeprefix("/api/tdah/"), corpo)
         else:
             self.send_error(404)
 
@@ -425,6 +451,69 @@ def _config_post(self: _Handler, acao: str, corpo: dict[str, Any]) -> None:
         self._enviar_json({"erro": str(exc)}, 400)
 
 
+def estado_tdah(cfg: Config) -> dict[str, Any]:
+    """Modo TDAH: ligado ou não, o que precisa para funcionar e (se ligado) os projetos."""
+    import shutil
+
+    from agente import projetos_tdah as pt
+    from agente.textos_tdah import t
+
+    modo = pt.modo_atual(cfg)
+    requisitos = [
+        {"nome": t("req_pastas"), "ok": bool(cfg.pastas_permitidas)},
+        {"nome": t("req_git"), "ok": shutil.which("git") is not None},
+        {"nome": t("req_ollama"), "ok": servicos(cfg)["ollama"]},
+    ]
+    projetos = pt.escanear(cfg, parado_horas=modo.parado_horas) if modo.ligado else []
+    return {
+        "ligado": modo.ligado,
+        "parado_horas": modo.parado_horas,
+        "requisitos": requisitos,
+        "projetos": projetos,
+    }
+
+
+def _tdah_post(self: _Handler, acao: str, corpo: dict[str, Any]) -> None:
+    from agente import projetos_tdah as pt
+    from agente.config import caminho_config
+    from agente.textos_tdah import t
+
+    caminho = str(corpo.get("caminho", ""))
+    try:
+        if acao == "ligar":
+            horas = pt.horas_validas(corpo.get("parado_horas", 2.0))
+            pt.salvar_modo(caminho_config(), bool(corpo.get("ligado")), horas)
+            self._enviar_json(estado_tdah(self.cfg))
+            return
+        if not pt.modo_atual(self.cfg).ligado:
+            raise ValueError(t("erro_desligado"))
+        horas = pt.modo_atual(self.cfg).parado_horas
+        if acao == "nome":
+            nomes = [p["nome"] for p in pt.escanear_rapido(self.cfg, horas)]
+            self._enviar_json({"parecidos": pt.parecidos(str(corpo.get("nome", "")), nomes)})
+            return
+        if acao == "semanal":
+            self._enviar_json({"texto": pt.resumo_semanal(pt.escanear_rapido(self.cfg, horas))})
+            return
+        projetos = pt.escanear_rapido(self.cfg, horas)
+        projeto = next((p for p in projetos if p["caminho"] == caminho), None)
+        if projeto is None:
+            raise ValueError(t("erro_nao_achado"))
+        if acao == "contexto":
+            self._enviar_json({"texto": pt.contexto(projeto)})
+        elif acao == "visto":
+            pt.marcar_visto(self.cfg, caminho)
+            self._enviar_json({"ok": True})
+        elif acao == "ficha":
+            self._enviar_json({"arquivo": str(pt.criar_ficha(self.cfg, caminho))})
+        elif acao == "resumir":
+            texto = pt.resumir_commits(self.cfg, caminho)
+            self._enviar_json({"texto": texto or t("sem_resumo")})
+        else:
+            self.send_error(404)
+    except (ValueError, OSError) as exc:
+        self._enviar_json({"erro": str(exc)}, 400)
+
 
 def estado_config(cfg: Config) -> dict[str, Any]:
     from agente import configuracoes as conf
@@ -466,6 +555,9 @@ def servir(cfg: Config | None = None, porta: int = PORTA_PADRAO, abrir: bool = T
     cfg = cfg or carregar_config()
     handler = type("Handler", (_Handler,), {"cfg": cfg})
     servidor = ThreadingHTTPServer(("127.0.0.1", porta), handler)
+    from agente import projetos_tdah
+
+    projetos_tdah.vigiar(cfg)  # só trabalha quando o Modo TDAH está ligado
     if abrir:
         webbrowser.open(f"http://127.0.0.1:{porta}")
     logger.info("painel web em http://127.0.0.1:%d", porta)

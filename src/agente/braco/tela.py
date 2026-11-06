@@ -26,7 +26,7 @@ LARGURA_ENVIADA = 1288
 def _dpi_real() -> None:
     """Faz o print usar pixels reais em telas com escala do Windows."""
     try:
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)  # type: ignore[attr-defined,unused-ignore]  # só Windows
     except (AttributeError, OSError):
         pass
 

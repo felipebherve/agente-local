@@ -66,8 +66,9 @@ def _ja_aberto() -> bool:
     """Impede dois ícones: um mutex nomeado do Windows marca que o app já está rodando."""
     import ctypes
 
-    ctypes.windll.kernel32.CreateMutexW(None, False, "agente-local-bandeja")
-    return bool(ctypes.windll.kernel32.GetLastError() == 183)  # ERROR_ALREADY_EXISTS
+    ctypes.windll.kernel32.CreateMutexW(None, False, "agente-local-bandeja")  # type: ignore[attr-defined,unused-ignore]  # só Windows
+    # 183 = ERROR_ALREADY_EXISTS
+    return bool(ctypes.windll.kernel32.GetLastError() == 183)  # type: ignore[attr-defined,unused-ignore]
 
 
 class Bandeja:
@@ -566,6 +567,11 @@ class Bandeja:
             self.interface.abrir_painel()
         threading.Thread(target=self._monitorar, name="monitor", daemon=True).start()
         threading.Thread(target=self._memoria, name="memória", daemon=True).start()
+        from agente import projetos_tdah
+
+        # Vigia do Modo TDAH mora aqui (a bandeja fica aberta o dia todo). Se o painel
+        # abriu antes e já é o dono, este não liga: a trava garante um vigia só no PC.
+        projetos_tdah.vigiar(self.cfg)
         tecla, voz = self.cfg.atalho_acordar, self.cfg.voz.atalho
         avisos = []
         if atalho.registrar(tecla, self.alternar):

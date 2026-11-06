@@ -146,3 +146,9 @@ limites:
 
 # Config compartilhada entre PCs por um HD externo: nome da pasta do HD ("" = não usa)
 hd_compartilhado: ""
+
+# Modo TDAH (Configurações > Ativar modo TDAH): todos os projetos num lugar só.
+# parado_horas: depois de quanto tempo sem mudança o projeto conta como parado (0,5 a 168).
+modo_tdah:
+  ligado: false
+  parado_horas: 2.0

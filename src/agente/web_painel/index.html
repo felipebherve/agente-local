@@ -188,6 +188,24 @@ button.link { border: 0; background: none; color: var(--acento); padding: 0; fon
 .pasta-linha .btn { height: 36px; padding: 0 12px; }
 .conta-grade { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-bottom: 0; }
 
+[hidden] { display: none !important; }
+.cartoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.projeto { display: flex; flex-direction: column; gap: 8px; }
+.projeto .topo { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.projeto .topo b { font-size: 15px; }
+.projeto .sub { margin: 0; }
+.selos { display: flex; gap: 6px; flex-wrap: wrap; }
+.selo { font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; color: var(--texto-2); }
+.selo.alta { color: var(--erro); } .selo.media { color: var(--claude); } .selo.baixa { color: var(--texto-3); }
+.selo.novo { color: var(--ok); } .selo.aviso { color: var(--claude); }
+.projeto .barra { margin: 0; }
+.projeto ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--texto-2); }
+.projeto .botoes { margin-top: auto; }
+.projeto .botoes .btn { height: 32px; padding: 0 10px; font-size: 13px; }
+.texto-tdah ol { padding-left: 20px; line-height: 1.7; margin: 0 0 20px; }
+.exemplo { background: var(--painel-2); border: 1px solid var(--borda); border-radius: 8px; padding: 10px 12px; margin: 0 0 20px; }
+.req { display: flex; gap: 8px; align-items: center; font-size: 13px; margin-bottom: 6px; }
+
 @media (max-width: 860px) {
   body { height: auto; min-height: 100vh; overflow: visible; }
   .mensagens { min-height: 320px; }
@@ -245,7 +263,9 @@ button.link { border: 0; background: none; color: var(--acento); padding: 0; fon
       <button role="tab" aria-selected="true" data-aba="conversa">Conversa</button>
       <button role="tab" aria-selected="false" data-aba="historico">Histórico</button>
       <button role="tab" aria-selected="false" data-aba="economia">Economia</button>
-      <button role="tab" aria-selected="false" data-aba="projetos">Projetos</button>
+      <button role="tab" aria-selected="false" data-aba="projetos" id="abaBtnProjetos">Projetos</button>
+      <button role="tab" aria-selected="false" data-aba="meus" id="abaBtnMeus" hidden>Meus projetos</button>
+      <button role="tab" aria-selected="false" data-aba="tdah" id="abaBtnTdah" hidden>Modo TDAH</button>
       <button role="tab" aria-selected="false" data-aba="config">Configurações</button>
     </nav>
 
@@ -303,8 +323,64 @@ button.link { border: 0; background: none; color: var(--acento); padding: 0; fon
         </table>
       </div>
     </div>
+    <div class="aba" id="aba-meus">
+      <div class="rolavel">
+        <div class="botoes" style="margin-top:0;margin-bottom:12px">
+          <input id="inNomeNovo" class="campo" style="max-width:260px" placeholder="Nome do projeto que vai criar">
+          <button class="btn" type="button" id="btnChecarNome">Já existe parecido?</button>
+          <button class="btn" type="button" id="btnSemanal">Copiar resumo da semana</button>
+          <button class="btn" type="button" id="btnAtualizarMeus">Atualizar</button>
+          <span class="sub" id="msgMeus"></span>
+        </div>
+        <div class="cartoes" id="cartoesMeus"></div>
+      </div>
+    </div>
+
+    <div class="aba" id="aba-tdah">
+      <div class="rolavel texto-tdah">
+        <h3 class="titulo">Modo TDAH: o que muda</h3>
+        <ol>
+          <li>Aparece a aba <b>Meus projetos</b>: um cartão por projeto, com barra de progresso.</li>
+          <li>Os projetos com prioridade <b>alta</b> ficam no topo.</li>
+          <li>Projeto novo nas suas pastas aparece sozinho, marcado como <b>novo</b>.</li>
+          <li>Se um nome parece com outro projeto, o cartão avisa. Antes de criar um projeto, digite o nome e pergunte se já existe parecido.</li>
+          <li>Projeto parado há mais de <b id="txHorasTdah">2</b> horas: o modelo do seu PC resume os últimos commits no cartão.</li>
+          <li>Botão <b>Copiar contexto</b>: um texto curto para colar no Claude e retomar o projeto sem gastar tokens explicando.</li>
+          <li>Uma vez por semana: resumo curto de todos os projetos, para o Claude sugerir prioridades.</li>
+        </ol>
+        <h3 class="titulo">A ficha de cada projeto</h3>
+        <p class="sub" style="margin-top:0">O cartão lê o arquivo <span class="mono">STATUS.md</span> da pasta. Se não existir, o botão <b>Criar ficha</b> faz um rascunho com o modelo local. Campos lidos:</p>
+        <pre class="mono exemplo">Prioridade: alta
+Concluído: 40%
+Próxima ação: terminar a tela de login
+
+## Resumo
+## Pronto
+## Falta</pre>
+        <h3 class="titulo">O que precisa</h3>
+        <div id="reqTdah"></div>
+        <div class="botoes">
+          <label class="linha-chave">Parado depois de <input id="inHorasTdah" class="campo" type="number" min="1" max="72" step="1" value="2" style="width:70px"> horas</label>
+        </div>
+        <div class="botoes">
+          <button class="btn primario" type="button" id="btnAtivarTdah">Ativar Modo TDAH</button>
+          <button class="btn" type="button" id="btnDesativarTdah">Desativar</button>
+          <span class="sub" id="msgTdah"></span>
+        </div>
+        <p class="sub">Nada sai do seu PC. Nenhum arquivo é apagado ou movido; o modo só lê as pastas e cria um STATUS.md quando você pede.</p>
+      </div>
+    </div>
+
     <div class="aba" id="aba-config">
       <div class="rolavel">
+        <h3 class="titulo">Modo TDAH</h3>
+        <div class="cartao" style="margin-bottom:20px">
+          <div class="conta-topo">
+            <label class="linha-chave"><span class="chave"><input type="checkbox" id="ckTdah"><span></span></span> Ativar modo TDAH</label>
+            <span class="status" id="stTdah">…</span>
+          </div>
+          <p class="sub">Junta todos os seus projetos num lugar só, com progresso e lembretes. <button type="button" class="link" id="btnVerTdah">Ver o que muda</button></p>
+        </div>
         <p class="sub" style="margin-top:0">O agente nunca guarda senha. Para entrar numa conta, o painel abre uma janela com o login oficial de cada programa. <button type="button" class="link" id="btnAtualizarConfig">Atualizar</button></p>
 
         <h3 class="titulo">Contas</h3>
@@ -393,7 +469,7 @@ $("#btnTema").onclick = () => {
 document.querySelectorAll("nav.abas button").forEach((b) => b.onclick = () => {
   document.querySelectorAll("nav.abas button").forEach((x) => x.setAttribute("aria-selected", x === b));
   document.querySelectorAll(".aba").forEach((a) => a.classList.toggle("ativa", a.id === "aba-" + b.dataset.aba));
-  ({ historico: carregarHistorico, economia: carregarEconomia, projetos: carregarProjetos, config: carregarConfig })[b.dataset.aba]?.();
+  ({ historico: carregarHistorico, economia: carregarEconomia, projetos: carregarProjetos, config: carregarConfig, meus: carregarMeus, tdah: carregarTdah })[b.dataset.aba]?.();
 });
 
 // estado (a cada 3 s)
@@ -642,6 +718,100 @@ $("#btnSalvarAtalho").onclick = async () => {
   } catch (e) { $("#msgAtalho").textContent = "Erro: " + e.message; }
 };
 
+// modo TDAH
+function abrirAba(nome) { document.querySelector(`nav.abas button[data-aba="${nome}"]`).click(); }
+function mostrarModo(t) {
+  $("#ckTdah").checked = t.ligado;
+  $("#stTdah").textContent = t.ligado ? "ligado" : "desligado";
+  $("#stTdah").className = "status" + (t.ligado ? " ok" : "");
+  $("#abaBtnMeus").hidden = !t.ligado;
+  $("#abaBtnProjetos").hidden = t.ligado;
+  if (t.ligado) $("#abaBtnTdah").hidden = false;
+  $("#inHorasTdah").value = t.parado_horas; $("#txHorasTdah").textContent = t.parado_horas;
+  $("#reqTdah").innerHTML = t.requisitos.map((r) =>
+    `<div class="req"><span class="status ${r.ok ? "ok" : "erro"}">${r.ok ? "ok" : "falta"}</span>${esc(r.nome)}</div>`).join("");
+  $("#btnAtivarTdah").hidden = t.ligado; $("#btnDesativarTdah").hidden = !t.ligado;
+}
+async function carregarTdah() { const t = await api("/api/tdah"); mostrarModo(t); return t; }
+async function salvarTdah(ligado) {
+  try {
+    const t = await api("/api/tdah/ligar", { ligado, parado_horas: Number($("#inHorasTdah").value) || 2 });
+    mostrarModo(t);
+    $("#msgTdah").textContent = ligado ? "Ligado. Veja a aba Meus projetos." : "Desligado.";
+    if (!ligado) { $("#abaBtnTdah").hidden = true; abrirAba("config"); }
+  } catch (e) { $("#msgTdah").textContent = "Erro: " + e.message; }
+}
+$("#ckTdah").onchange = (ev) => {
+  if (ev.target.checked) { ev.target.checked = false; $("#abaBtnTdah").hidden = false; abrirAba("tdah"); carregarTdah(); }
+  else salvarTdah(false);
+};
+$("#btnVerTdah").onclick = () => { $("#abaBtnTdah").hidden = false; abrirAba("tdah"); carregarTdah(); };
+$("#btnAtivarTdah").onclick = () => salvarTdah(true);
+$("#btnDesativarTdah").onclick = () => salvarTdah(false);
+
+async function copiar(texto, msg) {
+  try { await navigator.clipboard.writeText(texto); msg.textContent = "Copiado."; }
+  catch { window.prompt("Copie o texto:", texto); }
+}
+const PRIO = { alta: "alta", media: "média", baixa: "baixa" };
+function cartao(p, i) {
+  const pct = p.porcentagem;
+  const selos = [
+    p.prioridade && `<span class="selo ${p.prioridade}">${PRIO[p.prioridade]}</span>`,
+    p.novo && '<span class="selo novo">novo</span>',
+    p.parado && `<span class="selo">parado ${p.parado_horas < 48 ? Math.round(p.parado_horas) + "h" : Math.round(p.parado_horas / 24) + " dias"}</span>`,
+    p.parecido_com.length && `<span class="selo aviso" title="Pode ser o mesmo projeto">parecido com ${esc(p.parecido_com.join(", "))}</span>`,
+    !p.git && '<span class="selo aviso">sem Git</span>',
+  ].filter(Boolean).join("");
+  const lista = (t, itens) => itens.length ? `<div class="sub"><b>${t}</b></div><ul>${itens.slice(0, 4).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+  return `<div class="cartao projeto" data-i="${i}">
+    <div class="topo"><b>${esc(p.nome)}</b><span class="sub">${pct == null ? "sem %" : pct + "%"}</span></div>
+    <div class="barra"><i style="width:${pct || 0}%"></i></div>
+    <div class="selos">${selos}</div>
+    ${p.resumo ? `<p class="sub">${esc(p.resumo)}</p>` : ""}
+    ${p.proxima ? `<p class="sub"><b>Próxima ação:</b> ${esc(p.proxima)}</p>` : ""}
+    ${lista("Falta", p.falta)}
+    ${p.resumo_auto ? `<p class="sub"><b>Últimas mudanças</b> (${esc(p.resumo_auto_em)}): ${esc(p.resumo_auto)}</p>` : ""}
+    <p class="sub mono">${esc(p.caminho)}</p>
+    ${p.github ? `<p class="sub"><a href="${esc(p.github)}" target="_blank" rel="noopener">${esc(p.github)}</a></p>` : ""}
+    <div class="botoes">
+      <button class="btn primario" type="button" data-acao="contexto">Copiar contexto</button>
+      ${p.tem_ficha ? "" : '<button class="btn" type="button" data-acao="ficha">Criar ficha</button>'}
+      ${p.git ? '<button class="btn" type="button" data-acao="resumir">Resumir commits</button>' : ""}
+      ${p.novo ? '<button class="btn" type="button" data-acao="visto">Já vi</button>' : ""}
+    </div>
+    <span class="sub msg"></span>
+  </div>`;
+}
+let meus = [];
+async function carregarMeus() {
+  $("#msgMeus").textContent = "Lendo as pastas...";
+  const t = await carregarTdah();
+  meus = t.projetos;
+  $("#cartoesMeus").innerHTML = meus.map(cartao).join("") || '<p class="sub">Nenhum projeto nas pastas liberadas.</p>';
+  $("#msgMeus").textContent = `${meus.length} projetos.`;
+}
+$("#cartoesMeus").onclick = async (ev) => {
+  const b = ev.target.closest("button[data-acao]"); if (!b) return;
+  const c = b.closest(".projeto"); const p = meus[Number(c.dataset.i)]; const msg = c.querySelector(".msg");
+  const acao = b.dataset.acao;
+  msg.textContent = acao === "contexto" ? "" : "Trabalhando no seu PC...";
+  try {
+    const r = await api("/api/tdah/" + acao, { caminho: p.caminho });
+    if (acao === "contexto") return copiar(r.texto, msg);
+    if (acao === "resumir") { msg.textContent = ""; }
+    carregarMeus();
+  } catch (e) { msg.textContent = "Erro: " + e.message; }
+};
+$("#btnAtualizarMeus").onclick = carregarMeus;
+$("#btnSemanal").onclick = async () => { const r = await api("/api/tdah/semanal", {}); copiar(r.texto, $("#msgMeus")); };
+$("#btnChecarNome").onclick = async () => {
+  const nome = $("#inNomeNovo").value.trim(); if (!nome) return;
+  const r = await api("/api/tdah/nome", { nome });
+  $("#msgMeus").textContent = r.parecidos.length ? `Cuidado: já existe ${r.parecidos.join(", ")}. Veja se não é o mesmo projeto.` : "Nenhum parecido. Pode criar.";
+};
+
+carregarTdah().catch(() => {});
 atualizarEstado();
 setInterval(atualizarEstado, 3000);
 </script>

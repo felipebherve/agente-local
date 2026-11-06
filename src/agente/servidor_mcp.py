@@ -20,6 +20,8 @@ INSTRUCOES = (
     "Agente local gratuito no PC do usuário (Ollama na GPU dele). Em TODA conversa, chame "
     "pedir_ao_agente primeiro com o pedido do usuário (e a pasta do projeto, se houver): o "
     "Maestro liga o agente certo e só sobra para você o que voltar 'PRECISA DO CLAUDE'. "
+    "Antes de criar um projeto ou pasta nova, chame projeto_parecido(nome) para não "
+    "duplicar um que já existe. "
     "Para economizar tokens, "
     "use estas ferramentas sempre que a tarefa couber nelas, em vez de fazer você mesmo: "
     "rodar_testes no lugar de rodar testes e ler a saída; git_status, git_pull, "
@@ -498,9 +500,9 @@ def pedir_ao_agente(pedido: str, pasta: str = "") -> str:
 # Vagas de emprego: só existem se o módulo agente.vagas estiver presente (fica fora da
 # versão pública, porque raspar sites de emprego pode ir contra os termos deles).
 try:
-    from agente import vagas as _vagas
+    from agente import vagas as _vagas  # type: ignore[attr-defined,unused-ignore]
 except ImportError:
-    _vagas = None  # type: ignore[assignment]
+    _vagas = None  # type: ignore[assignment,unused-ignore]
 
 if _vagas is not None:
 
@@ -518,6 +520,17 @@ if _vagas is not None:
         vagas (sem o resto da página). Depois use ler_vaga em cada link que interessar.
         """
         return _seguro(lambda cfg, _: _vagas.buscar_vagas(cfg, url_da_busca, max), "Braço")
+
+
+@mcp.tool()
+def projeto_parecido(nome: str) -> str:
+    """Antes de criar um projeto ou pasta nova: diz se já existe um projeto com nome parecido
+    nas pastas liberadas (ex.: 'Agente de IA' e 'agente-ia'), com pasta, % pronto e resumo.
+    Só lê; não cria nada.
+    """
+    from agente import projetos_tdah
+
+    return _seguro(lambda cfg, _: projetos_tdah.checar_nome(cfg, nome), "")
 
 
 @mcp.tool()

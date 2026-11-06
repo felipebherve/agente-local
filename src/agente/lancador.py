@@ -120,4 +120,4 @@ def iniciar_com_windows(cfg: Config, ligar: bool) -> None:
 
 def abrir(caminho: Path) -> None:
     """Abre uma pasta ou arquivo com o programa padrão do Windows."""
-    os.startfile(caminho)  # só existe no Windows
+    os.startfile(caminho)  # type: ignore[attr-defined,unused-ignore]  # só no Windows

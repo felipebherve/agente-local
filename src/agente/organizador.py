@@ -24,6 +24,7 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from agente.config import Config
 
@@ -120,7 +121,7 @@ def duplicados(arquivos: list[Arquivo]) -> list[list[Arquivo]]:
     return grupos
 
 
-def resumir(arquivos: list[Arquivo], pasta: Path, grupos: list[list[Arquivo]]) -> dict:
+def resumir(arquivos: list[Arquivo], pasta: Path, grupos: list[list[Arquivo]]) -> dict[str, Any]:
     por_ext: dict[str, int] = defaultdict(int)
     for a in arquivos:
         por_ext[a.extensao] += 1
@@ -141,7 +142,7 @@ def resumir(arquivos: list[Arquivo], pasta: Path, grupos: list[list[Arquivo]]) -
     }
 
 
-def sugerir_estrutura(cfg: Config, resumo: dict) -> str:
+def sugerir_estrutura(cfg: Config, resumo: dict[str, Any]) -> str:
     from agente import nuvem
 
     texto = json.dumps(resumo, ensure_ascii=False, indent=2)
@@ -160,7 +161,7 @@ def _quebravel(texto: str) -> str:
     return texto.replace("/", "/ ").replace("\\", "\\ ")
 
 
-def _gerar_pdf(caminho: Path, pasta: Path, resumo: dict, sugestao: str) -> None:
+def _gerar_pdf(caminho: Path, pasta: Path, resumo: dict[str, Any], sugestao: str) -> None:
     from fpdf import FPDF, XPos, YPos
 
     def linha(altura: float, texto: str) -> None:
@@ -197,7 +198,7 @@ def _gerar_pdf(caminho: Path, pasta: Path, resumo: dict, sugestao: str) -> None:
     pdf.output(str(caminho))
 
 
-def gerar_relatorio(cfg: Config, pasta: Path) -> tuple[Path, dict]:
+def gerar_relatorio(cfg: Config, pasta: Path) -> tuple[Path, dict[str, Any]]:
     """Varre, acha duplicados e pede sugestão. Grava tudo em dados/organizador/<pasta>/.
 
     Devolve a pasta do relatório e o resumo (números), pra responder curto.
@@ -240,7 +241,7 @@ def _mais_antigo(grupo: list[Arquivo]) -> Arquivo:
     return min(grupo, key=lambda a: (a.modificado, len(a.caminho), a.caminho))
 
 
-def gerar_plano_lixo_duplicados(pasta: Path, grupos: list[list[Arquivo]]) -> dict:
+def gerar_plano_lixo_duplicados(pasta: Path, grupos: list[list[Arquivo]]) -> dict[str, Any]:
     """Decide, por grupo de duplicado, qual arquivo fica e quais vão pro lixo. Não move nada."""
     entradas = []
     for grupo in grupos:
@@ -263,7 +264,7 @@ def _destino_lixo(pasta: Path, caminho_original: str) -> Path:
     return pasta / "lixo" / "duplicados" / rel
 
 
-def executar_plano_lixo(pasta: Path, plano: dict) -> dict:
+def executar_plano_lixo(pasta: Path, plano: dict[str, Any]) -> dict[str, Any]:
     """Move de fato os arquivos do plano pra lixo/duplicados, preservando a estrutura de
     pastas original (pra dar pra rastrear de onde veio). Nunca apaga — só move."""
     movidos = 0
@@ -285,7 +286,7 @@ def executar_plano_lixo(pasta: Path, plano: dict) -> dict:
     return {"movidos": movidos, "bytes_movidos": bytes_movidos, "erros": erros}
 
 
-def gerar_plano_duplicados_e_salvar(cfg: Config, pasta: Path) -> tuple[Path, dict]:
+def gerar_plano_duplicados_e_salvar(cfg: Config, pasta: Path) -> tuple[Path, dict[str, Any]]:
     """Varre, acha duplicados e grava o plano de limpeza em dados/organizador/<pasta>/.
 
     Só decide e grava — nenhum arquivo é movido aqui. Revise plano_lixo.md e só então
@@ -317,7 +318,7 @@ def gerar_plano_duplicados_e_salvar(cfg: Config, pasta: Path) -> tuple[Path, dic
     return destino, plano
 
 
-def aplicar_plano_lixo(cfg: Config, pasta: Path) -> dict:
+def aplicar_plano_lixo(cfg: Config, pasta: Path) -> dict[str, Any]:
     """Lê o plano_lixo.json já gravado (de gerar_plano_duplicados_e_salvar) e executa."""
     destino = cfg.pasta_dados / "organizador" / _slug(pasta.name)
     plano = json.loads((destino / "plano_lixo.json").read_text(encoding="utf-8"))

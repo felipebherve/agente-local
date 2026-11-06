@@ -331,7 +331,7 @@ class Interface:
         try:
             import ctypes
 
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)  # type: ignore[attr-defined,unused-ignore]  # só Windows
         except (AttributeError, OSError):
             pass
         self.raiz = tk.Tk()
@@ -1005,7 +1005,7 @@ class Interface:
         """Deixa os cliques passarem pelas bolinhas e tira a janela do Alt+Tab."""
         import ctypes
 
-        user32 = ctypes.windll.user32
+        user32 = ctypes.windll.user32  # type: ignore[attr-defined,unused-ignore]  # só Windows
         hwnd = user32.GetParent(self._bolinhas.winfo_id())
         gwl_exstyle, ws_ex_transparent, ws_ex_layered, ws_ex_toolwindow = -20, 0x20, 0x80000, 0x80
         estilo = user32.GetWindowLongW(hwnd, gwl_exstyle)

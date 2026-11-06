@@ -76,3 +76,38 @@ def test_projetos_sao_as_pastas_dentro_das_liberadas(tmp_path, cfg):
     nomes = [p["nome"] for p in projetos]
     assert "proj-a" in nomes and ".escondida" not in nomes
     assert next(p for p in projetos if p["nome"] == "proj-a")["git"] == "sim"
+
+
+def _servidor(cfg):
+    import threading
+    from http.server import ThreadingHTTPServer
+
+    handler = type("H", (painel_web._Handler,), {"cfg": cfg})
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv
+
+
+def _post(porta, host=None, origem=None, tipo="application/json"):
+    import http.client
+
+    con = http.client.HTTPConnection("127.0.0.1", porta, timeout=5)
+    cab = {"Content-Type": tipo, "Host": host or f"127.0.0.1:{porta}"}
+    if origem:
+        cab["Origin"] = origem
+    con.request("POST", "/api/rota-que-nao-existe", body="{}", headers=cab)
+    return con.getresponse().status
+
+
+def test_painel_recusa_pedido_de_outro_site(cfg):
+    srv = _servidor(cfg)
+    porta = srv.server_address[1]
+    try:
+        assert _post(porta) == 404  # do próprio painel: passa (e a rota não existe)
+        assert _post(porta, origem=f"http://localhost:{porta}") == 404
+        assert _post(porta, origem="https://site-mal.com") == 403
+        assert _post(porta, host="site-mal.com") == 403  # DNS rebinding
+        assert _post(porta, tipo="text/plain") == 403  # formulário de outro site
+    finally:
+        srv.shutdown()
+        srv.server_close()

@@ -36,7 +36,7 @@ def _escutar(
     import ctypes
     from ctypes import wintypes
 
-    user32 = ctypes.windll.user32
+    user32 = ctypes.windll.user32  # type: ignore[attr-defined,unused-ignore]  # só Windows
     ok.append(bool(user32.RegisterHotKey(None, 1, mods, tecla)))
     pronto.set()
     if not ok[0]:
