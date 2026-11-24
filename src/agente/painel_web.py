@@ -31,6 +31,7 @@ from agente.config import Config, carregar_config
 logger = logging.getLogger(__name__)
 
 PORTA_PADRAO = 8899
+MAX_CORPO = 120 * 1024 * 1024  # até 20 fotos do celular em base64
 PASTA_WEB = Path(__file__).resolve().parent / "web_painel"
 PASTA_ICONES = Path(__file__).resolve().parent / "icones"
 # Servidos também para o celular antes de parear (não têm nada pessoal).
@@ -403,11 +404,54 @@ class _Handler(BaseHTTPRequestHandler):
         origem = self.headers.get("Origin")
         return origem is not None and origem not in {f"http://{h}" for h in self._locais()}
 
+    def _tailscale_para_aviso(self) -> dict[str, Any] | None:
+        """Estado do Tailscale para o aviso "ligue o Tailscale" (só no PC, só com o
+        celular configurado)."""
+        if self._remoto() or not _celular_atual(self.cfg).ligado:
+            return None
+        from agente import envios
+
+        return envios.estado_tailscale(int(getattr(self.server, "server_port", PORTA_PADRAO)))
+
     def _publico(self) -> bool:
         """Arquivos que o celular pode baixar antes de parear (tela do código e ícones)."""
         if not self._remoto():
             return False
         return self._host_remoto_ok() and self.path.split("?")[0] in ARQUIVOS_PUBLICOS
+
+    def _transcrever(self, corpo: dict[str, Any]) -> None:
+        from agente import atividade as ativ
+        from agente import envios
+        from agente.executor import ErroExecucao
+        from agente.llm import ClienteOllama, ErroOllama
+
+        arquivos = corpo.get("arquivos")
+        if not isinstance(arquivos, list):
+            self._enviar_json({"erro": "nenhuma imagem enviada"}, 400)
+            return
+        try:
+            with ativ.trabalhando(self.cfg.pasta_dados, "Cérebro"):
+                texto = envios.transcrever_envio(
+                    self.cfg, ClienteOllama.de_config(self.cfg), arquivos,
+                    str(corpo.get("foco", "")),
+                )
+        except (ErroExecucao, ErroOllama) as exc:
+            self._enviar_json({"erro": str(exc)}, 400)
+            return
+        self._enviar_json({"texto": texto})
+
+    def _ouvir(self, corpo: dict[str, Any]) -> None:
+        from agente import envios
+        from agente.executor import ErroExecucao
+
+        try:
+            texto = envios.ouvir_envio(
+                self.cfg, str(corpo.get("audio", "")), str(corpo.get("tipo", ""))
+            )
+        except ErroExecucao as exc:
+            self._enviar_json({"erro": str(exc)}, 400)
+            return
+        self._enviar_json({"texto": texto})
 
     def _parear(self) -> None:
         try:
@@ -432,6 +476,8 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _ler_corpo(self) -> dict[str, Any]:
         tamanho = int(self.headers.get("Content-Length", "0"))
+        if tamanho > MAX_CORPO:
+            raise ValueError("pedido grande demais")
         corpo = json.loads(self.rfile.read(tamanho).decode("utf-8") or "{}")
         if not isinstance(corpo, dict):
             raise ValueError("corpo não é um objeto")
@@ -460,6 +506,8 @@ class _Handler(BaseHTTPRequestHandler):
                     "servicos": servicos(cfg),
                     "agentes": estado_agentes(cfg),
                     "desligado": interruptor.desligado(cfg),
+                    "remoto": self._remoto(),
+                    "tailscale": self._tailscale_para_aviso(),
                     "voz_gravando": voz_gravando(),
                     "tokens_poupados": economia.total(cfg),
                     "omniroute_uso": [
@@ -519,6 +567,24 @@ class _Handler(BaseHTTPRequestHandler):
             corpo = self._ler_corpo()
         except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
             self._enviar_json({"erro": "pedido inválido"}, 400)
+            return
+        if self.path in ("/api/transcrever", "/api/ouvir") and interruptor.desligado(self.cfg):
+            self._enviar_json({"erro": "O agente está desligado. Toque em Acordar Agente."}, 409)
+            return
+        if self.path == "/api/transcrever":
+            self._transcrever(corpo)
+            return
+        if self.path == "/api/ouvir":
+            self._ouvir(corpo)
+            return
+        if self.path == "/api/tailscale/ligar":
+            if self._remoto():
+                self._enviar_json({"erro": "isso só pode ser feito no computador"}, 403)
+                return
+            from agente import envios
+
+            porta = int(getattr(self.server, "server_port", PORTA_PADRAO))
+            self._enviar_json(envios.ligar_tailscale(porta))
             return
         if self.path == "/api/acordar":
             interruptor.acordar(self.cfg)

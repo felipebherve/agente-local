@@ -108,6 +108,11 @@ No celular:
 3. Instale como app: Android (Chrome) > menu > **Instalar app**; iPhone (Safari) >
    compartilhar > **Adicionar à Tela de Início**. O ícone com a logo aparece na tela.
 
+Se o celular abrir a tela **Ligue o Tailscale**, é porque o Tailscale está desligado
+no celular (ou o PC está desligado): ligue e toque em **Tentar de novo**. No PC, o app
+mostra uma faixa azul com o botão **Ligar Tailscale** quando o acesso do celular está
+desligado.
+
 Pelo celular dá para conversar, acordar e desligar o agente, ligar e desligar cada
 agente e ver histórico e economia. Por segurança **não** dá para mudar as pastas
 liberadas, os logins nem ligar o microfone do PC.
@@ -115,7 +120,21 @@ liberadas, os logins nem ligar o microfone do PC.
 Perdeu o celular? Rode `agente celular --novo-codigo`: todos os celulares saem e
 precisam do código novo. Para desligar o acesso: `agente celular --desligar`.
 
-## 4. Problemas comuns
+## 4. Mandar fotos e prints para o agente ler
+
+Na conversa, toque no **clipe** e escolha uma ou várias imagens (até 20; fotos do
+iPhone em HEIC também). Se escrever algo no campo antes, vira o foco da leitura
+(ex.: "nome, CPF e endereço"). O modelo de visão do PC lê e responde com o texto. As
+imagens são apagadas do PC logo depois da leitura.
+
+## 5. Falar pelo microfone
+
+- No PC: o botão do microfone usa o microfone do computador (ou **Ctrl+Alt+F**).
+- No celular: o botão grava pelo microfone do celular (o navegador pede permissão na
+  primeira vez), e o PC transcreve e manda o pedido. Precisa da voz instalada no PC
+  (`./install.sh --voz`; no Windows, a opção de voz do instalador).
+
+## 6. Problemas comuns
 
 - **"Sem conexão com o PC" no celular**: confira se o PC está ligado e se o Tailscale
   está ativo nos dois aparelhos.

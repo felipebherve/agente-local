@@ -163,3 +163,30 @@ def test_codigo_aparece_no_pc_e_nunca_pelo_celular(cfg_cel):
         assert _pedir(porta, "GET", "/api/celular", cookie=sessao)[0] == 403
     finally:
         srv.shutdown()
+
+
+def test_celular_manda_fotos_e_audio(cfg_cel, monkeypatch, tmp_path):
+    from agente import envios, interruptor
+    from agente.braco import seguranca
+
+    monkeypatch.setattr(seguranca, "SINAL_PARADA", tmp_path / "PARADO")
+    monkeypatch.setattr(envios, "transcrever_envio", lambda c, o, arqs, foco: f"{len(arqs)} ok")
+    monkeypatch.setattr(envios, "ouvir_envio", lambda c, audio, tipo: "oi agente")
+    srv = _servidor(cfg_cel)
+    porta = srv.server_address[1]
+    sessao = celular.ler(cfg_cel)["sessao"]
+    try:
+        interruptor.acordar(cfg_cel)
+        corpo = {"arquivos": [{"nome": "a.jpg", "dados": "eA=="}]}
+        status, _, resp = _pedir(porta, "POST", "/api/transcrever", corpo, cookie=sessao)
+        assert status == 200 and json.loads(resp)["texto"] == "1 ok"
+        status, _, resp = _pedir(porta, "POST", "/api/ouvir", {"audio": "eA=="}, cookie=sessao)
+        assert json.loads(resp)["texto"] == "oi agente"
+        # o celular não liga o Tailscale do PC
+        assert _pedir(porta, "POST", "/api/tailscale/ligar", {}, cookie=sessao)[0] == 403
+        interruptor.desligar(cfg_cel, type("O", (), {"modelos_carregados": lambda s: {}})())
+        assert _pedir(porta, "POST", "/api/transcrever", corpo, cookie=sessao)[0] == 409
+        estado = json.loads(_pedir(porta, "GET", "/api/estado", cookie=sessao)[2])
+        assert estado["remoto"] is True and estado["tailscale"] is None
+    finally:
+        srv.shutdown()

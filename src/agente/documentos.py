@@ -132,6 +132,17 @@ def transcrever_imagens(
     arquivos = _listar(cfg, caminhos, EXT_IMAGEM)
     # checa o destino antes de gastar minutos no modelo de visão
     destino_md = _destino(cfg, salvar_em, ".md", confirmado) if salvar_em else None
+    resultado = transcrever_arquivos(cfg, cliente, arquivos, foco)
+    if destino_md is not None:
+        destino_md.write_text(resultado + "\n", encoding="utf-8")
+        resultado += f"\n\n(Transcrição salva em {destino_md})"
+    return resultado
+
+
+def transcrever_arquivos(
+    cfg: Config, cliente: ClienteOllama, arquivos: list[Path], foco: str = ""
+) -> str:
+    """Transcreve imagens já conferidas (o painel usa para as fotos mandadas pelo app)."""
     leitor = ClienteOllama(
         cliente.url,
         cliente.timeout_s,
@@ -150,9 +161,6 @@ def transcrever_imagens(
         logger.info("transcrito %s (%d caracteres)", arquivo.name, len(texto))
     resultado = "\n\n".join(partes)
     registrar(cfg, "transcrever imagem", bytes_imagens // 3, len(resultado))
-    if destino_md is not None:
-        destino_md.write_text(resultado + "\n", encoding="utf-8")
-        resultado += f"\n\n(Transcrição salva em {destino_md})"
     return resultado
 
 
