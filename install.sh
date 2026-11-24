@@ -156,17 +156,31 @@ fi
 if [ "$VOZ" = 1 ] && command -v gsettings >/dev/null \
     && gsettings list-schemas | grep -q org.gnome.settings-daemon.plugins.media-keys; then
     BASE=/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings
-    LISTA=$(gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings)
+    ESQUEMA=org.gnome.settings-daemon.plugins.media-keys
+    LISTA=$(gsettings get $ESQUEMA custom-keybindings)
     CAM="$BASE/agente-voz/"
-    if [[ "$LISTA" != *"$CAM"* ]]; then
-        if [[ "$LISTA" == "@as []" || "$LISTA" == "[]" ]]; then NOVA="['$CAM']"; else NOVA="${LISTA%]}, '$CAM']"; fi
-        gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "$NOVA"
+    # Já tem outro atalho com Ctrl+Alt+F (ex.: um feito à mão)? Então não cria outro igual.
+    JA_TEM=""
+    for item in $(echo "$LISTA" | tr -d "[],'@as"); do
+        [ "$item" = "$CAM" ] && continue
+        if [ "$(gsettings get "$ESQUEMA.custom-keybinding:$item" binding 2>/dev/null)" = "'<Control><Alt>f'" ]; then
+            JA_TEM="$item"
+        fi
+    done
+    if [ -n "$JA_TEM" ]; then
+        echo "Voz: o Ctrl+Alt+F já tem um atalho no GNOME ($JA_TEM); deixei como está."
+    else
+        if [[ "$LISTA" != *"$CAM"* ]]; then
+            if [[ "$LISTA" == "@as []" || "$LISTA" == "[]" ]]; then NOVA="['$CAM']"; else NOVA="${LISTA%]}, '$CAM']"; fi
+            gsettings set $ESQUEMA custom-keybindings "$NOVA"
+        fi
+        CHAVE="$ESQUEMA.custom-keybinding:$CAM"
+        gsettings set "$CHAVE" name "'Agente local: falar'"
+        # o valor é lido como GVariant: aspas simples por fora, duplas no caminho (tem espaço)
+        gsettings set "$CHAVE" command "'\"$PASTA/.venv/bin/python\" -m agente.voz.atalho_voz'"
+        gsettings set "$CHAVE" binding "'<Control><Alt>f'"
+        echo "Voz: Ctrl+Alt+F para começar a falar, Ctrl+Alt+F de novo para mandar."
     fi
-    CHAVE="org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$CAM"
-    gsettings set "$CHAVE" name "Agente local: falar"
-    gsettings set "$CHAVE" command "\"$PASTA/.venv/bin/python\" -m agente.voz.atalho_voz"
-    gsettings set "$CHAVE" binding "<Control><Alt>f"
-    echo "Voz: Ctrl+Alt+F para começar a falar, Ctrl+Alt+F de novo para mandar."
 fi
 
 azul "Pronto"
