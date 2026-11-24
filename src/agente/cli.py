@@ -245,7 +245,7 @@ def cmd_celular(cfg: Config, _cliente: ClienteOllama, args: argparse.Namespace) 
             caminho_config(), "celular", {"ligado": bool(args.ligar), "endereco": endereco}
         )
         cfg = carregar_config()
-        print("Pronto. Reabra o app do agente para valer.")
+        print("Pronto: já vale no painel que está no ar.")
     print(celular.passo_a_passo(cfg, PORTA_PADRAO))
     return 0
 

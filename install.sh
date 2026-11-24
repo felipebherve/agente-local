@@ -30,7 +30,7 @@ for arg in "$@"; do
     esac
 done
 
-PASTA="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PASTA="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"  # caminho real, sem links
 cd "$PASTA"
 
 azul() { printf '\n\033[1;34m== %s\033[0m\n' "$1"; }
@@ -141,7 +141,9 @@ After=network-online.target
 
 [Service]
 ExecStart="$PASTA/.venv/bin/agente-painel" --sem-navegador
-Restart=on-failure
+# always: se o app estiver com a porta, tenta de novo até ela ficar livre
+Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=default.target

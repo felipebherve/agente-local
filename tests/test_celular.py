@@ -44,8 +44,21 @@ def _pedir(porta, metodo, caminho, corpo=None, remoto=True, host=ENDERECO, cooki
 
 
 @pytest.fixture
-def cfg_cel(cfg):
-    return replace(cfg, celular=Celular(ligado=True, endereco=ENDERECO))
+def cfg_cel(cfg, monkeypatch):
+    cfg_cel = replace(cfg, celular=Celular(ligado=True, endereco=ENDERECO))
+    monkeypatch.setattr(painel_web, "_celular_atual", lambda _cfg: cfg_cel.celular)
+    return cfg_cel
+
+
+def test_celular_ligado_no_config_vale_sem_reabrir_o_painel(cfg, monkeypatch, tmp_path):
+    arq = tmp_path / "config-celular.yaml"
+    arq.write_text(
+        "modelos: {cerebro: a, codigo: b, visao: c, embeddings: d}\n"
+        f"celular: {{ligado: true, endereco: {ENDERECO}}}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("AGENTE_CONFIG", str(arq))
+    assert painel_web._celular_atual(cfg) == Celular(ligado=True, endereco=ENDERECO)
 
 
 def test_codigo_tem_8_letras_faceis_e_fica_guardado(cfg):

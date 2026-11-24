@@ -327,6 +327,15 @@ def ligar_atalho_voz(atalho: str) -> bool:
 # --- servidor -------------------------------------------------------------------------------
 
 
+def _celular_atual(cfg: Config) -> Any:  # noqa: ANN401 - Celular
+    """Lê o bloco celular do config.yaml a cada pedido de fora: `agente celular --ligar`
+    vale na hora, sem reabrir o painel."""
+    try:
+        return carregar_config().celular
+    except Exception:  # noqa: BLE001 - config ilegível: fica com o que já estava carregado
+        return cfg.celular
+
+
 class _Handler(BaseHTTPRequestHandler):
     cfg: Config
 
@@ -363,7 +372,7 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _host_remoto_ok(self) -> bool:
         """Só o endereço do PC no Tailscale, configurado em celular.endereco, entra."""
-        cel = self.cfg.celular
+        cel = _celular_atual(self.cfg)
         if not (cel.ligado and cel.endereco):
             return False
         host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host", "")).lower()
