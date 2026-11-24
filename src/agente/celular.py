@@ -111,8 +111,10 @@ def passo_a_passo(cfg: Config, porta: int) -> str:
     else:
         linhas.append("1. Tailscale encontrado neste PC. Entre com a mesma conta no celular.")
     linhas += [
-        f"2. Rode uma vez: tailscale serve --bg {porta}",
+        "2. Entre no Tailscale (Linux: sudo tailscale up; sudo tailscale set --operator=$USER)",
+        f"   e rode uma vez: tailscale serve --bg {porta}",
         "   (o Tailscale mostra o endereço, algo como https://seu-pc.tail1234.ts.net)",
+        "   (se pedir, abra o link para ativar o HTTPS e rode de novo)",
         "3. Rode: agente celular --ligar seu-pc.tail1234.ts.net",
         "4. No celular, abra esse endereço, digite o código abaixo e use",
         '   "Adicionar à tela inicial" (Android: "Instalar app").',

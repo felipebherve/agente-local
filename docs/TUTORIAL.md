@@ -79,13 +79,19 @@ Uma vez só, no PC:
 3. Deixe o painel sempre ligado (se não marcou na instalação):
    - Linux: `./install.sh --sim --celular` na pasta do agente;
    - Windows: rode o instalador de novo e marque a opção do celular.
-4. No terminal do PC:
+4. No terminal do PC (Linux), conecte o Tailscale à sua conta e libere o `serve` sem
+   sudo. Se aparecer "Logged out", é este passo que falta:
 
    ```bash
+   sudo tailscale up                    # abre um link: entre com a sua conta
+   sudo tailscale set --operator=$USER
    tailscale serve --bg 8899
    ```
 
-   Ele mostra o endereço do PC, algo como `https://meu-pc.tail1234.ts.net`.
+   No Windows, entre pelo app do Tailscale (ícone perto do relógio) e rode só o
+   `tailscale serve --bg 8899` no PowerShell. Na primeira vez o `serve` pode mostrar um
+   link para ativar o HTTPS: abra, clique em **Enable** e rode o comando de novo. No fim
+   ele mostra o endereço do PC, algo como `https://meu-pc.tail1234.ts.net`.
 5. Ligue o acesso com esse endereço e veja o código:
 
    ```bash
