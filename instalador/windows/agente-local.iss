@@ -52,6 +52,11 @@ Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\CHANGELOG.md"; DestDir: "{app}"; Flags: ignoreversion
 
+[Icons]
+; AppUserModelID igual ao do app: a janela aberta junta com o ícone fixado na barra
+Name: "{userprograms}\Agente Local"; Filename: "{app}\.venv\Scripts\agente-app.exe"; WorkingDir: "{app}"; IconFilename: "{app}\src\agente\icones\app.ico"; AppUserModelID: "AgenteLocal.App"; Comment: "Acordar e Desligar Agente"
+Name: "{userdesktop}\Agente Local"; Filename: "{app}\.venv\Scripts\agente-app.exe"; WorkingDir: "{app}"; IconFilename: "{app}\src\agente\icones\app.ico"; AppUserModelID: "AgenteLocal.App"; Comment: "Acordar e Desligar Agente"; Tasks: areadetrabalho
+
 [Run]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install.ps1"" -Sim {code:Opcoes}"; WorkingDir: "{app}"; StatusMsg: "Instalando o agente e baixando os modelos (pode levar alguns minutos)..."; Flags: waituntilterminated
 Filename: "{app}\.venv\Scripts\agente-app.exe"; Description: "Abrir o Agente Local"; Flags: postinstall nowait skipifsilent skipifdoesntexist
@@ -74,8 +79,7 @@ Type: files; Name: "{userstartup}\Agente Local - celular.lnk"
 [Code]
 function Opcoes(Param: String): String;
 begin
-  Result := '';
+  Result := ' -SemAtalhos';
   if WizardIsTaskSelected('celular') then Result := Result + ' -Celular';
   if WizardIsTaskSelected('voz') then Result := Result + ' -Voz';
-  if not WizardIsTaskSelected('areadetrabalho') then Result := Result + ' -SemAreaDeTrabalho';
 end;

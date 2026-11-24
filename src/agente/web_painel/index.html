@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Agente local</title>
+<title>Agente Local</title>
 <link rel="icon" href="/icone-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icone-192.png">
@@ -373,6 +373,14 @@ dialog#dlgDetalhes::backdrop, dialog#dlgTdah::backdrop { background: rgba(0,0,0,
           </div>
           <p class="sub">Junta todos os seus projetos num lugar só, com progresso e lembretes. <button type="button" class="link" id="btnVerTdah">ⓘ O que é o Modo TDAH?</button></p>
         </div>
+        <div id="blocoCelular">
+          <h3 class="titulo">Celular</h3>
+          <div class="cartao" style="margin-bottom:20px">
+            <div class="conta-topo"><b>App do celular</b><span class="status" id="stCelular">…</span></div>
+            <p class="sub" id="txCelular"></p>
+            <p style="margin:8px 0 0">Código de pareamento: <b id="txCodigo" style="font-family:var(--mono);font-size:1.2em;letter-spacing:.08em">–</b></p>
+          </div>
+        </div>
         <h3 class="titulo">Tamanho da letra</h3>
         <div class="cartao" style="margin-bottom:20px">
           <label class="linha-chave">Letra
@@ -719,8 +727,21 @@ function status(id, ok, textoOk, textoNao) {
   const el = $(id); el.className = "status " + (ok ? "ok" : "erro"); el.textContent = ok ? textoOk : textoNao;
 }
 const bonito = (a) => a ? a.split("+").map((p) => p.length === 1 ? p.toUpperCase() : p[0].toUpperCase() + p.slice(1)).join("+") : "nenhum";
+async function carregarCelular() {
+  try {
+    const c = await api("/api/celular");
+    status("#stCelular", c.ligado, "ligado", "desligado");
+    $("#txCelular").innerHTML = c.ligado
+      ? `No celular, abra <b>https://${esc(c.endereco)}</b> e digite o código abaixo.`
+      : "Para ligar, rode <b>agente celular</b> no terminal e siga o passo a passo.";
+    $("#txCodigo").textContent = c.codigo.slice(0, 4) + "-" + c.codigo.slice(4);
+  } catch (err) {
+    $("#blocoCelular").hidden = true; // pelo celular o código não aparece
+  }
+}
 async function carregarConfig() {
   const c = await api("/api/config");
+  carregarCelular();
   status("#stClaude", c.claude.conectado, "conectado", c.claude.instalado ? "não conectado" : "não instalado");
   $("#txClaude").textContent = (c.claude.conectado ? `Conta: ${c.claude.conta}${c.claude.plano ? " · " + c.claude.plano : ""}. ` : "") +
     (c.claude.agente_registrado ? "O agente está registrado no Claude Code." : "O agente ainda não está registrado no Claude Code.");

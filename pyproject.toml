@@ -35,9 +35,12 @@ voz = [
     "nvidia-cublas-cu12; sys_platform == 'win32'",
     "nvidia-cudnn-cu12>=9,<10; sys_platform == 'win32'",
 ]
-# Janela própria do app de desktop (no Windows usa o WebView2 do sistema). Sem ela o app
+# Janela própria do app de desktop (Windows: WebView2 do sistema; Linux: Qt). Sem ela o app
 # abre o painel no Chrome/Edge em modo app, que também é uma janela sem abas.
-app = ["pywebview>=5; sys_platform == 'win32'"]
+app = [
+    "pywebview>=5; sys_platform == 'win32'",
+    "pywebview[qt]>=5; sys_platform == 'linux'",  # Qt: a janela usa o nome do atalho
+]
 dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10", "types-PyYAML"]
 
 [project.scripts]

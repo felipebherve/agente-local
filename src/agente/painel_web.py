@@ -487,6 +487,13 @@ class _Handler(BaseHTTPRequestHandler):
             self._enviar_json({"projetos": listar_projetos(cfg)})
         elif self.path == "/api/config":
             self._enviar_json(estado_config(cfg))
+        elif self.path == "/api/celular":
+            if self._remoto():  # o código só aparece no próprio PC
+                self.send_error(403)
+                return
+            cel = _celular_atual(cfg)
+            codigo = celular.ler(cfg)["codigo"]
+            self._enviar_json({"ligado": cel.ligado, "endereco": cel.endereco, "codigo": codigo})
         elif self.path == "/api/tdah":
             self._enviar_json(estado_tdah(cfg))
         else:

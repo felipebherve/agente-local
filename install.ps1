@@ -10,7 +10,7 @@
 # O que faz: instala pelo winget o que faltar (Python, Git, Ollama e, se quiser, Node.js),
 # cria o ambiente do agente, instala o OmniRoute (opcional), roda "agente init" e cria os
 # atalhos "Agente Local" (o app, com a logo) na área de trabalho e no menu Iniciar.
-param([switch]$Sim, [switch]$Voz, [switch]$Celular, [switch]$SemAreaDeTrabalho)
+param([switch]$Sim, [switch]$Voz, [switch]$Celular, [switch]$SemAreaDeTrabalho, [switch]$SemAtalhos)
 $ErrorActionPreference = "Stop"
 Set-Location -Path $PSScriptRoot
 
@@ -96,6 +96,7 @@ $icone = Join-Path $PSScriptRoot "src\agente\icones\app.ico"
 $menu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
 $destinos = @([Environment]::GetFolderPath("Desktop"), $menu)
 if ($SemAreaDeTrabalho) { $destinos = @($menu) }
+if ($SemAtalhos) { $destinos = @() }  # o instalador .exe cria os atalhos (com o ID da barra)
 foreach ($pasta in $destinos) {
     $lnk = $shell.CreateShortcut((Join-Path $pasta "Agente Local.lnk"))
     $lnk.TargetPath = $app

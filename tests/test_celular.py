@@ -151,3 +151,15 @@ def test_botoes_acordar_e_desligar(cfg, tmp_path, monkeypatch):
             "desligado": False}
     finally:
         srv.shutdown()
+
+
+def test_codigo_aparece_no_pc_e_nunca_pelo_celular(cfg_cel):
+    srv = _servidor(cfg_cel)
+    porta = srv.server_address[1]
+    try:
+        status, _, corpo = _pedir(porta, "GET", "/api/celular", remoto=False)
+        assert status == 200 and json.loads(corpo)["codigo"] == celular.ler(cfg_cel)["codigo"]
+        sessao = celular.ler(cfg_cel)["sessao"]
+        assert _pedir(porta, "GET", "/api/celular", cookie=sessao)[0] == 403
+    finally:
+        srv.shutdown()

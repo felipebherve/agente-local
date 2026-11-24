@@ -65,9 +65,9 @@ fi
 azul "3/6 Ambiente do agente"
 [ -d .venv ] || "$PY" -m venv .venv
 .venv/bin/python -m pip install -q --upgrade pip
-EXTRAS=""
+EXTRAS="[app]"
 if [ "$VOZ" = 1 ]; then
-    EXTRAS="[voz]"
+    EXTRAS="[app,voz]"
     command -v notify-send >/dev/null || aviso "Dica: instale libnotify-bin para ver os avisos da voz."
 fi
 .venv/bin/python -m pip install -q -e ".$EXTRAS"
