@@ -144,7 +144,7 @@ def init(sim: bool = False, baixar: bool = True, caminho: Path = CAMINHO_PADRAO)
         print(f"Não registrei no Claude: {exc}")
         return 1
     print("\nPronto. Abra o Claude Code e peça algo: ele vai chamar o agente sozinho.")
-    print("Painel: comando 'agente-painel' (abre no navegador).")
+    print("App: atalho 'Agente Local' (ou o comando 'agente-app'); abre com o agente desligado.")
     return 0
 
 
