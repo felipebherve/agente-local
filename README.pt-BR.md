@@ -53,6 +53,8 @@ O `agente init` escolhe os modelos que cabem na sua placa:
 
 ## Instalar
 
+Passo a passo completo, do instalador ao celular: [docs/TUTORIAL.md](docs/TUTORIAL.md).
+
 **Jeito fácil:** baixe o instalador na página
 [Releases](https://github.com/felipebherve/agente-local/releases):
 

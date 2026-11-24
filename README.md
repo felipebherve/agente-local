@@ -53,6 +53,8 @@ Every answer is labelled with where it came from (`[Ollama local · model]`,
 
 ## Install
 
+Step-by-step guide (Portuguese), from installer to phone: [docs/TUTORIAL.md](docs/TUTORIAL.md).
+
 **Easy way:** download an installer from
 [Releases](https://github.com/felipebherve/agente-local/releases):
 `AgenteLocal-Setup-Windows.exe` (no admin needed) or `AgenteLocal-Instalador-Linux.run`
