@@ -6,6 +6,8 @@
 #   ./install.sh --sim                         # aceita tudo sem perguntar
 #   ./install.sh --voz                         # inclui a voz (atalho Ctrl+Alt+F)
 #   ./install.sh --celular                     # deixa o painel sempre no ar para o celular
+#   ./install.sh --barra                       # fixa o app na barra de tarefas (dock)
+#   ./install.sh --sem-area-de-trabalho        # não cria o atalho na área de trabalho
 #
 # O que faz: confere Python e Git, instala o Ollama (se faltar), cria o ambiente do
 # agente, instala o OmniRoute (opcional), roda "agente init" (modelos + config + Claude)
@@ -15,12 +17,16 @@ set -euo pipefail
 SIM=0
 VOZ=0
 CELULAR=0
+BARRA=0
+AREA=1
 for arg in "$@"; do
     case "$arg" in
         --sim) SIM=1 ;;
         --voz) VOZ=1 ;;
         --celular) CELULAR=1 ;;
-        -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+        --barra) BARRA=1 ;;
+        --sem-area-de-trabalho) AREA=0 ;;
+        -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
     esac
 done
 
@@ -104,12 +110,26 @@ Terminal=false
 Categories=Development;Utility;
 EOF
 DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
-if [ -d "$DESKTOP_DIR" ]; then
+if [ "$AREA" = 1 ] && [ -d "$DESKTOP_DIR" ]; then
     cp "$HOME/.local/share/applications/agente-local.desktop" "$DESKTOP_DIR/agente-local.desktop"
     chmod +x "$DESKTOP_DIR/agente-local.desktop"
     gio set "$DESKTOP_DIR/agente-local.desktop" metadata::trusted true 2>/dev/null || true
 fi
-echo "Atalho 'Agente Local' criado no menu de aplicativos e na área de trabalho."
+echo "Atalho 'Agente Local' criado no menu de aplicativos."
+[ "$AREA" = 1 ] && [ -d "$DESKTOP_DIR" ] && echo "Atalho criado na área de trabalho."
+if [ "$BARRA" = 1 ]; then
+    # GNOME (Ubuntu): a barra de tarefas é a lista de favoritos do dock
+    if command -v gsettings >/dev/null && FAVS=$(gsettings get org.gnome.shell favorite-apps 2>/dev/null); then
+        if [[ "$FAVS" != *"agente-local.desktop"* ]]; then
+            if [[ "$FAVS" == "@as []" || "$FAVS" == "[]" ]]; then NOVA="['agente-local.desktop']"
+            else NOVA="${FAVS%]}, 'agente-local.desktop']"; fi
+            gsettings set org.gnome.shell favorite-apps "$NOVA"
+        fi
+        echo "Agente Local fixado na barra de tarefas."
+    else
+        aviso "Não achei o dock do GNOME: abra o app e use 'Fixar no dock/painel' com o botão direito."
+    fi
+fi
 
 if [ "$CELULAR" = 1 ] && command -v systemctl >/dev/null; then
     # Painel sempre no ar (leve, o agente começa desligado) para o celular poder acordar.

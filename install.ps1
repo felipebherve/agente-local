@@ -10,7 +10,7 @@
 # O que faz: instala pelo winget o que faltar (Python, Git, Ollama e, se quiser, Node.js),
 # cria o ambiente do agente, instala o OmniRoute (opcional), roda "agente init" e cria os
 # atalhos "Agente Local" (o app, com a logo) na área de trabalho e no menu Iniciar.
-param([switch]$Sim, [switch]$Voz, [switch]$Celular)
+param([switch]$Sim, [switch]$Voz, [switch]$Celular, [switch]$SemAreaDeTrabalho)
 $ErrorActionPreference = "Stop"
 Set-Location -Path $PSScriptRoot
 
@@ -93,10 +93,9 @@ $shell = New-Object -ComObject WScript.Shell
 $painel = Join-Path $PSScriptRoot ".venv\Scripts\agente-painel.exe"
 $app = Join-Path $PSScriptRoot ".venv\Scripts\agente-app.exe"
 $icone = Join-Path $PSScriptRoot "src\agente\icones\app.ico"
-$destinos = @(
-    [Environment]::GetFolderPath("Desktop"),
-    (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs")
-)
+$menu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+$destinos = @([Environment]::GetFolderPath("Desktop"), $menu)
+if ($SemAreaDeTrabalho) { $destinos = @($menu) }
 foreach ($pasta in $destinos) {
     $lnk = $shell.CreateShortcut((Join-Path $pasta "Agente Local.lnk"))
     $lnk.TargetPath = $app
@@ -105,7 +104,8 @@ foreach ($pasta in $destinos) {
     $lnk.Description = "App do agente: Acordar e Desligar Agente"
     $lnk.Save()
 }
-Write-Host "Atalho 'Agente Local' criado na área de trabalho e no menu Iniciar."
+Write-Host "Atalho 'Agente Local' criado no menu Iniciar$(if (-not $SemAreaDeTrabalho) { ' e na área de trabalho' })."
+Write-Host "Barra de tarefas: menu Iniciar > Agente Local > botão direito > Fixar na barra de tarefas."
 
 if ($Celular) {
     # Painel sempre no ar (leve, o agente começa desligado) para o celular poder acordar.
@@ -123,7 +123,7 @@ if ($Celular) {
 if ($Voz) {
     # Atalho de teclado do Windows: um .lnk no menu Iniciar com tecla de atalho.
     $vpyw = Join-Path $PSScriptRoot ".venv\Scripts\pythonw.exe"
-    $lnk = $shell.CreateShortcut((Join-Path $destinos[1] "Agente local - falar.lnk"))
+    $lnk = $shell.CreateShortcut((Join-Path $menu "Agente local - falar.lnk"))
     $lnk.TargetPath = $vpyw
     $lnk.Arguments = "-m agente.voz.atalho_voz"
     $lnk.WorkingDirectory = $PSScriptRoot

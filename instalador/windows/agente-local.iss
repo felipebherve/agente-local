@@ -36,6 +36,7 @@ LicenseFile=..\..\LICENSE
 Name: "pt"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
 [Tasks]
+Name: "areadetrabalho"; Description: "Criar atalho na área de trabalho"
 Name: "celular"; Description: "Deixar o painel sempre ligado para usar pelo celular (inicia com o Windows)"; Flags: unchecked
 Name: "voz"; Description: "Instalar a voz (Ctrl+Alt+F para falar com o agente)"; Flags: unchecked
 
@@ -55,6 +56,10 @@ Source: "..\..\CHANGELOG.md"; DestDir: "{app}"; Flags: ignoreversion
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install.ps1"" -Sim {code:Opcoes}"; WorkingDir: "{app}"; StatusMsg: "Instalando o agente e baixando os modelos (pode levar alguns minutos)..."; Flags: waituntilterminated
 Filename: "{app}\.venv\Scripts\agente-app.exe"; Description: "Abrir o Agente Local"; Flags: postinstall nowait skipifsilent skipifdoesntexist
 
+[Messages]
+; O Windows não deixa um instalador fixar programas na barra de tarefas: fica a dica.
+pt.FinishedLabel=O Agente Local foi instalado.%n%nPara fixar na barra de tarefas: abra o menu Iniciar, ache "Agente Local", clique com o botão direito e escolha "Fixar na barra de tarefas".
+
 [UninstallRun]
 Filename: "taskkill.exe"; Parameters: "/F /IM agente-painel.exe"; Flags: runhidden; RunOnceId: "ParaPainel"
 Filename: "taskkill.exe"; Parameters: "/F /IM agente-app.exe"; Flags: runhidden; RunOnceId: "ParaApp"
@@ -72,4 +77,5 @@ begin
   Result := '';
   if WizardIsTaskSelected('celular') then Result := Result + ' -Celular';
   if WizardIsTaskSelected('voz') then Result := Result + ' -Voz';
+  if not WizardIsTaskSelected('areadetrabalho') then Result := Result + ' -SemAreaDeTrabalho';
 end;
