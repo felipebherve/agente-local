@@ -17,11 +17,14 @@ official sources.
 | numpy | BSD-3-Clause | https://numpy.org |
 | pystray | LGPL-3.0 | https://github.com/moses-palmer/pystray |
 | fpdf2 | LGPL-3.0 | https://github.com/py-pdf/fpdf2 |
+| pypdf | BSD-3-Clause | https://github.com/py-pdf/pypdf |
+| pi-heif (bundles libheif and libde265, LGPL-3.0) | BSD-3-Clause | https://github.com/bigcat88/pillow_heif |
 | pywinauto (Windows only) | BSD-3-Clause | https://github.com/pywinauto/pywinauto |
 | pywin32 (Windows only) | PSF-2.0 | https://github.com/mhammond/pywin32 |
 
-pystray and fpdf2 are LGPL-3.0: they are used as unmodified, separately installed
-libraries, which the LGPL allows. You can replace them with any compatible version.
+pystray, fpdf2 and the libheif/libde265 libraries inside pi-heif are LGPL-3.0: they are
+used as unmodified, separately installed libraries, which the LGPL allows. pi-heif is the
+decode-only build, so it carries no GPL encoder (x265). You can replace them with any compatible version.
 
 ## Optional voice extra (`pip install "agente-local[voz]"`)
 

@@ -37,7 +37,9 @@ INSTRUCOES = (
     "confira antes de agir). Para mexer no computador: "
     "navegador_* para sites (lê a página como lista numerada, sem print), janela_* e "
     "abrir_app para apps do Windows, tela_descrever para saber o que está na tela sem "
-    "receber imagem. falar(texto) lê em voz alta no PC quando o usuário pedir "
+    "receber imagem, transcrever_imagem para ler o texto de prints e fotos salvos (no "
+    "lugar de abrir a imagem) e juntar_em_pdf para juntar fotos, textos e PDFs num PDF só. "
+    "falar(texto) lê em voz alta no PC quando o usuário pedir "
     "para ouvir a resposta. Se a resposta disser 'PRECISA DE CONFIRMAÇÃO', pergunte ao usuário "
     "antes de repetir com confirmado=true. Se disser 'ERRO no agente local', siga sem ele."
 )
@@ -495,6 +497,41 @@ def pedir_ao_agente(pedido: str, pasta: str = "") -> str:
         return f"[{r.agente}] {r.resposta}"
 
     return _seguro(acao, "Maestro")
+
+
+@mcp.tool()
+def transcrever_imagem(
+    caminhos: list[str], foco: str = "", salvar_em: str = "", confirmado: bool = False
+) -> str:
+    """Transcreve o texto de prints ou fotos com o modelo de visão local (a imagem nunca
+    vai para você, só o texto). Use no lugar de abrir imagens para ler o que está escrito.
+
+    caminhos: arquivos de imagem (jpg, png, webp, heic do iPhone...) ou pastas (pega as
+    imagens do primeiro nível, em ordem alfabética; até 50 por vez). foco: o que importa
+    (ex.: 'valores e regras'). salvar_em: caminho de um .md para guardar a transcrição
+    (opcional); se ele já existir, pede confirmação antes de substituir.
+    """
+    from agente import documentos
+
+    return _seguro(
+        lambda cfg, cliente: documentos.transcrever_imagens(
+            cfg, cliente, caminhos, foco, salvar_em, confirmado
+        )
+    )
+
+
+@mcp.tool()
+def juntar_em_pdf(caminhos: list[str], destino: str, confirmado: bool = False) -> str:
+    """Junta fotos (jpg, png, webp, heic do iPhone...), textos (.txt, .md) e PDFs que já
+    existem num PDF só, na ordem dada (pasta = arquivos dela em ordem alfabética). Cada
+    foto vira uma página A4, girada do jeito certo e leve; PDFs entram com todas as
+    páginas. Ex.: frente e verso do RG num PDF só, ou holerites de 3 meses juntos.
+
+    destino: caminho do PDF a criar. Se ele já existir, pede confirmação antes de substituir.
+    """
+    from agente import documentos
+
+    return _seguro(lambda cfg, _: documentos.juntar_em_pdf(cfg, caminhos, destino, confirmado), "")
 
 
 # Vagas de emprego: só existem se o módulo agente.vagas estiver presente (fica fora da

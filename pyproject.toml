@@ -21,6 +21,8 @@ dependencies = [
     "psutil>=5.9",
     "numpy>=1.26",
     "fpdf2>=2.7",  # relatório em PDF do organizador de pastas
+    "pypdf>=5",  # juntar PDFs que já existem
+    "pi-heif>=0.18",  # abrir fotos HEIC do iPhone (só leitura, sem codec GPL)
 ]
 
 [project.optional-dependencies]
@@ -80,7 +82,7 @@ files = ["src"]
 [[tool.mypy.overrides]]
 module = [
     "pywinauto.*", "mss.*", "win32clipboard", "win32com.*", "pystray.*",
-    "psutil", "sounddevice", "faster_whisper", "piper",
+    "psutil", "sounddevice", "faster_whisper", "piper", "pi_heif",
 ]
 ignore_missing_imports = true
 
