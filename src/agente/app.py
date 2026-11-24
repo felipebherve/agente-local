@@ -95,6 +95,14 @@ def ouvir_outras_copias(
     return servidor
 
 
+def parar_de_ouvir(servidor: socket.socket) -> None:
+    """Solta a porta da cópia única (o shutdown acorda a thread presa no accept; só o
+    close deixaria a porta ouvindo enquanto ela espera)."""
+    with contextlib.suppress(OSError):
+        servidor.shutdown(socket.SHUT_RDWR)
+    servidor.close()
+
+
 # --- janela ------------------------------------------------------------------------------
 
 
@@ -231,7 +239,7 @@ def main() -> None:
             servidor.shutdown()
             servidor.server_close()
         if unica:
-            unica.close()
+            parar_de_ouvir(unica)
 
 
 if __name__ == "__main__":

@@ -30,5 +30,5 @@ def test_so_abre_uma_copia_e_a_segunda_chama_a_primeira():
         assert app.avisar_aberto(porta)
         assert chamou.wait(5)
     finally:
-        primeira.close()
+        app.parar_de_ouvir(primeira)
     assert not app.avisar_aberto(porta)  # fechou: ninguém aberto
