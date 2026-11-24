@@ -75,8 +75,18 @@ def _executavel_mcp() -> str:
 
 
 def _configs_desktop() -> list[Path]:
-    """Caminhos do Claude Desktop: instalação comum e versão da Microsoft Store."""
+    """Caminhos do Claude Desktop: Windows (comum e Microsoft Store), macOS e Linux."""
     caminhos: list[Path] = []
+    if os.name != "nt":
+        # macOS e Linux: só registra se o Claude Desktop já tiver criado a pasta dele
+        if sys.platform == "darwin":
+            pasta = Path.home() / "Library" / "Application Support" / "Claude"
+        else:
+            xdg = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
+            pasta = Path(xdg) / "Claude"
+        if pasta.is_dir():
+            caminhos.append(pasta / "claude_desktop_config.json")
+        return caminhos
     appdata = os.environ.get("APPDATA")
     if appdata:
         caminhos.append(Path(appdata) / "Claude" / "claude_desktop_config.json")

@@ -41,3 +41,19 @@ def test_instrucoes_atualizam_no_lugar(tmp_path):
     assert texto.count(INICIO) == 1
     assert texto.startswith("# Minhas regras") and texto.rstrip().endswith("fim do arquivo")
     assert registrar_instrucoes(arq) is False
+
+
+def test_configs_desktop_linux_usa_pasta_do_claude(tmp_path, monkeypatch):
+    import os
+    import sys
+
+    import pytest
+
+    from agente import instalar
+
+    if os.name == "nt" or sys.platform == "darwin":
+        pytest.skip("teste do caminho do Linux")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    assert instalar._configs_desktop() == []
+    (tmp_path / "Claude").mkdir()
+    assert instalar._configs_desktop() == [tmp_path / "Claude" / "claude_desktop_config.json"]

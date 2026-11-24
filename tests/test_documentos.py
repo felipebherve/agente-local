@@ -1,0 +1,82 @@
+from pathlib import Path
+
+import pytest
+from PIL import Image
+
+from agente import documentos
+from agente.executor import ConfirmacaoNecessaria, ErroExecucao
+from agente.llm import Resposta
+
+
+def _foto(pasta: Path, nome: str, tamanho: tuple[int, int] = (300, 200)) -> Path:
+    arq = pasta / nome
+    Image.new("RGB", tamanho, (200, 30, 30)).save(arq)
+    return arq
+
+
+class ClienteFalso:
+    url = "http://x"
+    timeout_s = 5.0
+    keep_alive = "1m"
+    pensar = None
+    max_tokens = 256
+
+
+def test_juntar_em_pdf_imagens_e_texto(cfg, tmp_path):
+    _foto(tmp_path, "rg_frente.jpg")
+    _foto(tmp_path, "rg_verso.png", (200, 400))
+    (tmp_path / "obs.txt").write_text("Cliente com dependente, 36 meses de CTPS.", "utf-8")
+    arquivos = [str(tmp_path / n) for n in ("rg_frente.jpg", "rg_verso.png", "obs.txt")]
+    texto = documentos.juntar_em_pdf(cfg, arquivos, str(tmp_path / "RG"))
+    pdf = tmp_path / "RG.pdf"
+    assert pdf.exists() and pdf.read_bytes().startswith(b"%PDF")
+    assert "3 página(s)" in texto
+
+
+def test_juntar_em_pdf_pasta_inteira_em_ordem(cfg, tmp_path):
+    fotos = tmp_path / "fotos"
+    fotos.mkdir()
+    _foto(fotos, "b.jpg")
+    _foto(fotos, "a.jpg")
+    (fotos / "leia.pdf").write_bytes(b"%PDF-1.4")
+    listados = documentos._listar(cfg, [str(fotos)], documentos.EXT_IMAGEM)
+    assert [p.name for p in listados] == ["a.jpg", "b.jpg"]
+    assert "2 página(s)" in documentos.juntar_em_pdf(cfg, [str(fotos)], str(tmp_path / "x.pdf"))
+
+
+def test_juntar_em_pdf_pede_confirmacao_para_sobrescrever(cfg, tmp_path):
+    foto = _foto(tmp_path, "a.jpg")
+    (tmp_path / "saida.pdf").write_bytes(b"antigo")
+    with pytest.raises(ConfirmacaoNecessaria):
+        documentos.juntar_em_pdf(cfg, [str(foto)], str(tmp_path / "saida.pdf"))
+    documentos.juntar_em_pdf(cfg, [str(foto)], str(tmp_path / "saida.pdf"), confirmado=True)
+    assert (tmp_path / "saida.pdf").read_bytes().startswith(b"%PDF")
+
+
+def test_fora_das_pastas_permitidas_e_tipo_invalido(cfg, tmp_path):
+    fora = Path(__file__)
+    with pytest.raises(ErroExecucao, match="fora das pastas"):
+        documentos.juntar_em_pdf(cfg, [str(fora)], str(tmp_path / "a.pdf"))
+    planilha = tmp_path / "dados.xlsx"
+    planilha.write_bytes(b"x")
+    with pytest.raises(ErroExecucao, match="não suportado"):
+        documentos.juntar_em_pdf(cfg, [str(planilha)], str(tmp_path / "a.pdf"))
+
+
+def test_transcrever_imagens_usa_modelo_de_visao_e_salva(cfg, tmp_path, monkeypatch):
+    _foto(tmp_path, "print1.png")
+    _foto(tmp_path, "print2.png")
+    chamadas = []
+
+    def conversar(self, modelo, pergunta, sistema=None, temperatura=0.2, imagens=None):
+        chamadas.append((modelo, self.max_tokens, len(imagens or [])))
+        return Resposta("TEXTO DO PRINT", modelo, 1, 1, 0.1, 10.0)
+
+    monkeypatch.setattr(documentos.ClienteOllama, "conversar", conversar)
+    resultado = documentos.transcrever_imagens(
+        cfg, ClienteFalso(), [str(tmp_path)], salvar_em=str(tmp_path / "transcricao")
+    )
+    assert chamadas == [("c", documentos.TOKENS_TRANSCRICAO, 1)] * 2
+    assert "## print1.png" in resultado and "## print2.png" in resultado
+    salvo = (tmp_path / "transcricao.md").read_text("utf-8")
+    assert salvo.count("TEXTO DO PRINT") == 2
