@@ -53,6 +53,14 @@ Every answer is labelled with where it came from (`[Ollama local · model]`,
 
 ## Install
 
+Step-by-step guide (Portuguese), from installer to phone: [docs/TUTORIAL.md](docs/TUTORIAL.md).
+
+**Easy way:** download an installer from
+[Releases](https://github.com/felipebherve/agente-local/releases):
+`AgenteLocal-Setup-Windows.exe` (no admin needed) or `AgenteLocal-Instalador-Linux.run`
+(`chmod +x` it and run it). Both install into Documents/Agente Local, keep your data on
+update, and can keep the panel running for the phone app.
+
 **Linux**
 
 ```bash
@@ -99,6 +107,11 @@ You do not need to do anything special: Claude Code calls the agent on its own
 - "run the tests" · "commit this" · "open a draft PR"
 - "what changed in this project?" · "where is the login handled?"
 - "review the project before I ship"
+
+**App** (`agente-app` or the *Agente Local* shortcut): opens with the agent **off**;
+**Acordar Agente** turns it on and **Desligar Agente** pauses every agent, stops the Arm and
+unloads the models. **Phone**: the panel is an installable app over a private
+[Tailscale](https://tailscale.com) network with a pairing code; run `agente celular`.
 
 **Panel** (`agente-painel` or the *Agente local* shortcut): PC usage, Ollama and
 OmniRoute status, switches for each agent, a chat that shows the route of every answer,

@@ -53,12 +53,29 @@ O `agente init` escolhe os modelos que cabem na sua placa:
 
 ## Instalar
 
+Passo a passo completo, do instalador ao celular: [docs/TUTORIAL.md](docs/TUTORIAL.md).
+
+**Jeito fácil:** baixe o instalador na página
+[Releases](https://github.com/felipebherve/agente-local/releases):
+
+- Windows: `AgenteLocal-Setup-Windows.exe` (não pede administrador; na primeira vez o
+  Windows pode avisar que o programa não é assinado: clique em *Mais informações* >
+  *Executar assim mesmo*).
+- Linux: `AgenteLocal-Instalador-Linux.run`, depois
+  `chmod +x AgenteLocal-Instalador-Linux.run && ./AgenteLocal-Instalador-Linux.run`.
+
+Os dois instalam em **Documentos/Agente Local** (dá para escolher outra pasta, com
+espaço no nome sem problema), perguntam se o painel fica sempre ligado para o celular e,
+ao atualizar, mantêm o seu `config.yaml` e os seus dados.
+
+**Pelo terminal**
+
 **Linux**
 
 ```bash
 git clone https://github.com/felipebherve/agente-local.git
 cd agente-local
-./install.sh            # --voz para o atalho de voz, --sim para aceitar tudo
+./install.sh            # --voz para o atalho de voz, --sim aceita tudo, --celular
 ```
 
 **Windows** (PowerShell)
@@ -66,13 +83,16 @@ cd agente-local
 ```powershell
 git clone https://github.com/felipebherve/agente-local.git
 cd agente-local
-powershell -ExecutionPolicy Bypass -File .\install.ps1     # -Voz, -Sim
+powershell -ExecutionPolicy Bypass -File .\install.ps1     # -Voz, -Sim, -Celular
 ```
 
 O instalador instala o que faltar (Ollama; no Windows também Python e Git pelo
 `winget`), cria o ambiente do agente, baixa os modelos, escreve o `config.yaml`, registra
-o agente no Claude Code e no Claude Desktop e cria o atalho **Agente local**, que abre o
-painel no seu navegador.
+o agente no Claude Code e no Claude Desktop e cria o atalho **Agente Local**, que abre o
+app numa janela própria.
+
+Mudou a pasta do agente de lugar? Rode o instalador de novo na pasta nova: ele refaz o
+`.venv` (que guarda caminhos absolutos) e registra o agente no Claude com o caminho novo.
 
 Deu algo errado? Rode `agente doctor` (Windows: `.venv\Scripts\agente.exe doctor`).
 
@@ -100,7 +120,20 @@ coloca as instruções em `~/.claude/CLAUDE.md`). Exemplos do que pedir:
 - "o que mudou neste projeto?" · "onde fica o login?"
 - "revisa o projeto antes de eu publicar"
 
-**Painel** (`agente-painel` ou o atalho *Agente local*): uso do PC, Ollama e OmniRoute,
+**App** (`agente-app` ou o atalho *Agente Local*): abre com o agente **desligado**. O
+botão **Acordar Agente** liga tudo; **Desligar Agente** pausa os agentes, para o Braço,
+tira os modelos da placa de vídeo e faz o Claude trabalhar sem o agente. No terminal:
+`agente acordar-agente` e `agente desligar-agente`. Fechar a janela não desliga o agente:
+para isso use o botão.
+
+**Celular** (Android ou iPhone): o painel vira app pela rede privada do
+[Tailscale](https://tailscale.com) (grátis). Rode `agente celular` e siga o passo a
+passo: instalar o Tailscale no PC e no celular, `tailscale serve --bg 8899`,
+`agente celular --ligar seu-pc.tailXXXX.ts.net`, abrir o endereço no celular, digitar o
+código de pareamento e *Adicionar à tela inicial*. Para o celular achar o PC sempre,
+instale com `--celular` (Windows: `-Celular`), que deixa o painel ligado em segundo plano.
+
+**Painel** (o que aparece no app): uso do PC, Ollama e OmniRoute,
 chave para ligar e desligar cada agente, conversa que mostra o caminho de cada resposta,
 microfone, histórico, gráfico de economia, seus projetos e a aba **Configurações**, para
 entrar no Claude e no GitHub, escolher os modelos do OmniRoute, escolher as pastas que o
@@ -131,6 +164,10 @@ para mandar. Dá para trocar o atalho no painel (Configurações).
   Windows, **Ctrl+Alt+P** também funciona).
 - Uma página pode trazer texto tentando dar ordens ao agente (injeção de prompt).
   Mantenha as confirmações ligadas.
+- Celular: o painel continua ouvindo só em `127.0.0.1`; o celular chega pelo Tailscale
+  (só os seus aparelhos, com HTTPS) e ainda precisa do código de pareamento. Pelo celular
+  não dá para mudar as pastas liberadas, os logins nem ligar o microfone do PC.
+  `agente celular --novo-codigo` desconecta todos os celulares.
 - Sem telemetria e sem servidor nosso: tudo roda no seu PC, menos o que você mandar para
   os provedores do OmniRoute ou para o Claude.
 

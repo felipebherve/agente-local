@@ -3,8 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Agente local</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233b6ef5'/%3E%3Cpath d='M9 21l7-11 7 11' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<title>Agente Local</title>
+<link rel="icon" href="/icone-192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icone-192.png">
+<meta name="theme-color" content="#1b1b2f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Agente Local">
 <style>
 :root {
   --escala: 1.2; /* tamanho da letra: Configurações > Tamanho da letra */
@@ -36,7 +41,7 @@ html, body { margin: 0; height: 100%; }
 body {
   background: var(--bg); color: var(--texto);
   font: calc(14px * var(--escala))/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
-  display: grid; grid-template-rows: auto 1fr; height: 100vh; overflow: hidden;
+  display: grid; grid-template-rows: auto auto 1fr; height: 100vh; overflow: hidden;
 }
 button { font: inherit; color: inherit; cursor: pointer; }
 header {
@@ -148,6 +153,17 @@ form.compositor textarea:focus { outline: 2px solid var(--acento); outline-offse
 }
 .btn.primario { background: var(--acento); border-color: var(--acento); color: var(--sobre-acento); }
 .btn:disabled { opacity: .5; cursor: default; }
+.btn.interruptor { height: 36px; padding: 0 16px; font-weight: 600; border-radius: 999px; }
+.btn.interruptor.acordar { background: var(--ok); border-color: var(--ok); color: #fff; }
+.btn.interruptor.desligar { background: transparent; border-color: var(--erro); color: var(--erro); }
+.aviso-desligado { height: 0; overflow: hidden; padding: 0 20px; background: var(--painel-2); color: var(--texto-2); }
+body.desligado .aviso-desligado { height: auto; padding: 10px 20px; border-bottom: 1px solid var(--borda); }
+.aviso-tailscale { display: none; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 20px; background: var(--acento-suave); border-bottom: 1px solid var(--borda); }
+.aviso-tailscale.visivel { display: flex; }
+body.remoto .so-pc { display: none !important; }
+.btn.anexo { width: 42px; padding: 0; display: grid; place-items: center; }
+.miniaturas { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.miniaturas img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid var(--borda); }
 .btn.mic { width: 42px; padding: 0; display: grid; place-items: center; }
 .btn.mic.gravando { background: var(--erro); border-color: var(--erro); color: #fff; animation: pulso 1.4s infinite; }
 @keyframes pulso { 50% { box-shadow: 0 0 0 6px rgba(209,67,67,.18); } }
@@ -211,6 +227,19 @@ button.link { border: 0; background: none; color: var(--acento); padding: 0; fon
   body { height: auto; min-height: 100vh; overflow: visible; }
   .mensagens { min-height: 320px; }
   main { grid-template-columns: 1fr; padding: 12px 16px; }
+  main > aside { order: 2; } /* no celular a conversa vem primeiro */
+  header { gap: 10px; }
+  .btn.interruptor { margin-left: auto; }
+  nav.abas { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  nav.abas::-webkit-scrollbar { display: none; }
+  nav.abas button { padding: 8px 10px; }
+  form.compositor { gap: 6px; flex-wrap: wrap; }
+  /* campo de texto na linha de cima, inteiro; microfone, imagens e Enviar embaixo */
+  form.compositor textarea { order: -1; flex: 1 1 100%; min-width: 0; font-size: 16px; } /* 16px: o iPhone não dá zoom */
+  form.compositor #btnEnviar { margin-left: auto; }
+  .cartao, .msg, .corpo, td, .sub, p { overflow-wrap: anywhere; }
+  table { display: block; overflow-x: auto; }
+  #txCodigo { white-space: nowrap; }
   header { flex-wrap: wrap; padding: 10px 16px; }
   .chips { margin-left: 0; width: 100%; }
 }
@@ -233,9 +262,10 @@ dialog#dlgDetalhes::backdrop, dialog#dlgTdah::backdrop { background: rgba(0,0,0,
 <body>
 <header>
   <div class="marca">
-    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--acento)"/><path d="M9 21l7-11 7 11" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    Agente local
+    <img src="/icone-192.png" alt="" width="28" height="28" style="border-radius:7px">
+    Agente Local
   </div>
+  <button class="btn interruptor" id="btnInterruptor" type="button" disabled>…</button>
   <div class="chips">
     <span class="chip"><i class="ponto" id="ptOllama"></i>Ollama <span id="txOllama"></span></span>
     <span class="chip"><i class="ponto" id="ptOmni"></i>OmniRoute</span>
@@ -245,6 +275,12 @@ dialog#dlgDetalhes::backdrop, dialog#dlgTdah::backdrop { background: rgba(0,0,0,
     </button>
   </div>
 </header>
+<div class="aviso-tailscale" id="avisoTailscale">
+  <span id="txTailscale">O acesso pelo celular está desligado: o Tailscale não está ligado neste PC.</span>
+  <button class="btn primario" type="button" id="btnTailscale">Ligar Tailscale</button>
+  <a id="lnkTailscale" target="_blank" rel="noopener" hidden>Entrar na conta do Tailscale</a>
+</div>
+<div class="aviso-desligado" id="avisoDesligado">O agente está desligado: nada roda e a placa de vídeo está livre. Toque em <b>Acordar Agente</b> para ligar.</div>
 
 <main>
   <aside>
@@ -299,6 +335,10 @@ dialog#dlgDetalhes::backdrop, dialog#dlgTdah::backdrop { background: rgba(0,0,0,
         <button type="button" class="btn mic" id="btnMic" title="Falar (Ctrl+Alt+F): clique para começar e de novo para mandar" aria-label="Falar">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
         </button>
+        <button type="button" class="btn anexo" id="btnAnexo" title="Mandar fotos ou prints para o agente ler" aria-label="Mandar imagens">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+        </button>
+        <input type="file" id="arqImagens" accept="image/*,.heic,.heif" multiple hidden>
         <textarea id="entrada" rows="1" placeholder="Escreva um pedido. Enter envia, Shift+Enter quebra linha."></textarea>
         <button class="btn primario" id="btnEnviar" type="submit">Enviar</button>
       </form>
@@ -360,6 +400,14 @@ dialog#dlgDetalhes::backdrop, dialog#dlgTdah::backdrop { background: rgba(0,0,0,
           </div>
           <p class="sub">Junta todos os seus projetos num lugar só, com progresso e lembretes. <button type="button" class="link" id="btnVerTdah">ⓘ O que é o Modo TDAH?</button></p>
         </div>
+        <div id="blocoCelular">
+          <h3 class="titulo">Celular</h3>
+          <div class="cartao" style="margin-bottom:20px">
+            <div class="conta-topo"><b>App do celular</b><span class="status" id="stCelular">…</span></div>
+            <p class="sub" id="txCelular"></p>
+            <p style="margin:8px 0 0">Código de pareamento: <b id="txCodigo" style="font-family:var(--mono);font-size:1.2em;letter-spacing:.08em">–</b></p>
+          </div>
+        </div>
         <h3 class="titulo">Tamanho da letra</h3>
         <div class="cartao" style="margin-bottom:20px">
           <label class="linha-chave">Letra
@@ -372,6 +420,7 @@ dialog#dlgDetalhes::backdrop, dialog#dlgTdah::backdrop { background: rgba(0,0,0,
           </label>
           <p class="sub">Fica guardado neste navegador.</p>
         </div>
+        <div class="so-pc">
         <p class="sub" style="margin-top:0">O agente nunca guarda senha. Para entrar numa conta, o painel abre uma janela com o login oficial de cada programa. <button type="button" class="link" id="btnAtualizarConfig">Atualizar</button></p>
 
         <h3 class="titulo">Contas</h3>
@@ -427,6 +476,7 @@ dialog#dlgDetalhes::backdrop, dialog#dlgTdah::backdrop { background: rgba(0,0,0,
             <button class="btn primario" type="button" id="btnSalvarAtalho">Salvar atalho</button>
             <span class="sub" id="msgAtalho"></span>
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -546,12 +596,61 @@ async function atualizarEstado() {
     $("#txModelos").textContent = s.modelos_carregados.length ? "Na placa agora: " + s.modelos_carregados.join(", ") : "Nenhum modelo carregado na placa agora.";
     $("#txPoupados").textContent = mil(e.tokens_poupados);
     $("#ecoOmni").textContent = mil(e.omniroute_uso.reduce((a, p) => a + p.tokens, 0));
+    mostrarInterruptor(e.desligado);
+    document.body.classList.toggle("remoto", !!e.remoto);
+    mostrarTailscale(e.tailscale);
     desenharAgentes(e.agentes);
-    marcarMic(e.voz_gravando);
+    if (!e.remoto) marcarMic(e.voz_gravando); // no celular o microfone é o do aparelho
   } catch (err) {
     $("#ptOllama").className = "ponto erro";
   }
 }
+// Acordar Agente / Desligar Agente
+let desligado = true;
+function mostrarInterruptor(estaDesligado) {
+  desligado = !!estaDesligado;
+  const b = $("#btnInterruptor");
+  b.disabled = false;
+  b.textContent = desligado ? "Acordar Agente" : "Desligar Agente";
+  b.className = "btn interruptor " + (desligado ? "acordar" : "desligar");
+  document.body.classList.toggle("desligado", desligado);
+}
+$("#btnInterruptor").onclick = async () => {
+  const b = $("#btnInterruptor");
+  b.disabled = true;
+  b.textContent = desligado ? "Acordando…" : "Desligando…";
+  try { mostrarInterruptor((await api(desligado ? "/api/acordar" : "/api/desligar", {})).desligado); }
+  catch (err) { b.disabled = false; mostrarInterruptor(desligado); }
+  atualizarEstado();
+};
+// aviso "ligue o Tailscale" (só no PC, quando o celular está configurado)
+function mostrarTailscale(t) {
+  const ok = !t || (t.conectado && t.servindo);
+  $("#avisoTailscale").classList.toggle("visivel", !ok);
+  if (!t || ok) return;
+  $("#txTailscale").textContent = !t.instalado
+    ? "O acesso pelo celular precisa do Tailscale, que não está instalado neste PC."
+    : "O acesso pelo celular está desligado: ligue o Tailscale neste PC.";
+  $("#btnTailscale").hidden = !t.instalado;
+}
+$("#btnTailscale").onclick = async () => {
+  const b = $("#btnTailscale");
+  b.disabled = true; b.textContent = "Ligando…";
+  try {
+    const r = await api("/api/tailscale/ligar", {});
+    if (r.link) { const a = $("#lnkTailscale"); a.href = r.link; a.hidden = false; a.textContent = r.aviso + " Abrir"; }
+    else if (!r.ok) $("#txTailscale").textContent = r.aviso;
+  } catch (err) { $("#txTailscale").textContent = err.message; }
+  b.disabled = false; b.textContent = "Ligar Tailscale";
+  atualizarEstado();
+};
+// no celular o texto de ajuda do campo é curto (o longo ficava cortado)
+if (matchMedia("(max-width: 860px)").matches) $("#entrada").placeholder = "Escreva um pedido";
+
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+
 function desenharAgentes(agentes) {
   $("#listaAgentes").innerHTML = agentes.map((a) => `
     <div class="agente">
@@ -602,6 +701,71 @@ function ajustar() { entrada.style.height = "auto"; entrada.style.height = Math.
 entrada.addEventListener("input", ajustar);
 document.querySelectorAll(".sugestoes button").forEach((b) => b.onclick = () => enviar(b.textContent));
 
+// imagens: uma ou várias fotos/prints para o agente ler (modelo de visão do PC)
+const lerBase64 = (arq) => new Promise((ok, erro) => {
+  const r = new FileReader();
+  r.onload = () => ok(String(r.result));
+  r.onerror = () => erro(r.error);
+  r.readAsDataURL(arq);
+});
+$("#btnAnexo").onclick = () => $("#arqImagens").click();
+$("#arqImagens").onchange = async (ev) => {
+  const arquivos = [...ev.target.files];
+  ev.target.value = "";
+  if (!arquivos.length) return;
+  const foco = entrada.value.trim();
+  entrada.value = ""; ajustar();
+  const fotos = await Promise.all(arquivos.map(async (a) => ({ nome: a.name, dados: await lerBase64(a) })));
+  const miniaturas = fotos.filter((f) => f.dados.startsWith("data:image/") && !/heic|heif/i.test(f.nome))
+    .map((f) => `<img src="${f.dados}" alt="">`).join("");
+  adicionar(`${esc(arquivos.length === 1 ? "1 imagem para ler" : arquivos.length + " imagens para ler")}${foco ? ": " + esc(foco) : ""}<div class="miniaturas">${miniaturas}</div>`, "voce");
+  const espera = adicionar(`<span class="digitando">Lendo ${arquivos.length > 1 ? "as imagens" : "a imagem"} no PC… (pode levar alguns segundos por imagem)</span>`, "agente");
+  try {
+    const r = await api("/api/transcrever", { arquivos: fotos, foco });
+    espera.innerHTML = `<span class="etiqueta d-local">Ollama no PC · Leitura de imagem</span><div class="corpo">${esc(r.texto)}</div>`;
+  } catch (err) {
+    espera.innerHTML = `<span class="etiqueta d-claude">Erro</span><div class="corpo">${esc(err.message)}</div>`;
+  }
+};
+
+// microfone do celular: grava no aparelho, o Whisper do PC transcreve e o texto vai pedido
+let gravador = null;
+async function micDoAparelho() {
+  if (gravador) { gravador.stop(); return; }
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    adicionar('<span class="etiqueta d-claude">Erro</span><div class="corpo">Este navegador não deixa gravar áudio.</div>', "agente");
+    return;
+  }
+  let fluxo;
+  try { fluxo = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch (err) {
+    adicionar('<span class="etiqueta d-claude">Erro</span><div class="corpo">Sem permissão para o microfone. Libere nas configurações do navegador.</div>', "agente");
+    return;
+  }
+  const pedacos = [];
+  gravador = new MediaRecorder(fluxo);
+  gravador.ondataavailable = (e) => e.data.size && pedacos.push(e.data);
+  const aviso = adicionar('<span class="digitando">Ouvindo… toque no microfone de novo para mandar.</span>', "agente");
+  marcarMic(true);
+  gravador.onstop = async () => {
+    fluxo.getTracks().forEach((t) => t.stop());
+    const tipo = gravador.mimeType || "audio/webm";
+    gravador = null;
+    marcarMic(false);
+    aviso.innerHTML = '<span class="digitando">Transcrevendo no PC…</span>';
+    try {
+      const audio = await lerBase64(new Blob(pedacos, { type: tipo }));
+      const r = await api("/api/ouvir", { audio, tipo });
+      aviso.remove();
+      if (r.texto) enviar(r.texto);
+      else adicionar('<span class="digitando">Não ouvi nada. Tente de novo.</span>', "agente");
+    } catch (err) {
+      aviso.innerHTML = `<span class="etiqueta d-claude">Erro</span><div class="corpo">${esc(err.message)}</div>`;
+    }
+  };
+  gravador.start();
+}
+
 // microfone: mesmo liga/desliga do Ctrl+Alt+F; a resposta chega no histórico
 function marcarMic(v) {
   gravando = v;
@@ -610,6 +774,7 @@ function marcarMic(v) {
 }
 let ultimoHistorico = null;
 $("#btnMic").onclick = async () => {
+  if (document.body.classList.contains("remoto")) { micDoAparelho(); return; }
   const r = await api("/api/voz", {});
   marcarMic(r.gravando);
   if (r.gravando) {
@@ -683,8 +848,21 @@ function status(id, ok, textoOk, textoNao) {
   const el = $(id); el.className = "status " + (ok ? "ok" : "erro"); el.textContent = ok ? textoOk : textoNao;
 }
 const bonito = (a) => a ? a.split("+").map((p) => p.length === 1 ? p.toUpperCase() : p[0].toUpperCase() + p.slice(1)).join("+") : "nenhum";
+async function carregarCelular() {
+  try {
+    const c = await api("/api/celular");
+    status("#stCelular", c.ligado, "ligado", "desligado");
+    $("#txCelular").innerHTML = c.ligado
+      ? `No celular, abra <b>https://${esc(c.endereco)}</b> e digite o código abaixo.`
+      : "Para ligar, rode <b>agente celular</b> no terminal e siga o passo a passo.";
+    $("#txCodigo").textContent = c.codigo.slice(0, 4) + "-" + c.codigo.slice(4);
+  } catch (err) {
+    $("#blocoCelular").hidden = true; // pelo celular o código não aparece
+  }
+}
 async function carregarConfig() {
   const c = await api("/api/config");
+  carregarCelular();
   status("#stClaude", c.claude.conectado, "conectado", c.claude.instalado ? "não conectado" : "não instalado");
   $("#txClaude").textContent = (c.claude.conectado ? `Conta: ${c.claude.conta}${c.claude.plano ? " · " + c.claude.plano : ""}. ` : "") +
     (c.claude.agente_registrado ? "O agente está registrado no Claude Code." : "O agente ainda não está registrado no Claude Code.");

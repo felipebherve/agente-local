@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Desktop app `agente-app` (Windows and Linux): its own window with the app logo, opens
+  with the agent **off**; "Acordar Agente" / "Desligar Agente" buttons on top. Off means
+  every agent paused, Arm stopped, models unloaded from the GPU and the MCP tools answer
+  that the agent is off. CLI: `agente desligar-agente`, `agente acordar-agente`.
+- Phone app: the panel is an installable PWA (Android and iPhone). Access only through a
+  private Tailscale network (`tailscale serve`), with an 8-character pairing code and a
+  secure cookie; from the phone you cannot change allowed folders, sign-ins or the PC
+  microphone. Setup: `agente celular`.
+- Installers: `AgenteLocal-Setup-Windows.exe` (Inno Setup, no admin) and
+  `AgenteLocal-Instalador-Linux.run`, built by GitHub Actions. Both install into
+  Documents/Agente Local by default, keep your data on update and handle spaces in the
+  folder name. `install.sh --celular` / `install.ps1 -Celular` keep the panel running.
+- Installers recreate `.venv` when the folder was moved (absolute paths inside it).
 - New tool `transcrever_imagem`: transcribes the text of screenshots and photos with the
   local vision model (the image never leaves the PC; optional save to `.md`, asks before
   overwriting).

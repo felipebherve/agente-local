@@ -25,8 +25,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-SISTEMA_LOCAL = (
-    "Você é o assistente local{de_quem}, em português do Brasil. Responda direto e curto "
+IDENTIDADE = (
+    "Você é o Agente Local{de_quem}: um programa que roda no computador da pessoa, com "
+    "modelos de IA locais (Ollama), para poupar tokens do Claude. Você NÃO tem outra "
+    "especialidade nem outro assunto preferido (não é assistente de ervas, saúde, culinária "
+    "ou qualquer outro tema): é um ajudante geral do dia a dia e do trabalho no PC. "
+)
+SISTEMA_LOCAL = IDENTIDADE + (
+    "Fale em português do Brasil. Responda direto e curto "
     "(até 8 frases), sem enrolação. Responda tudo que você souber com certeza, mesmo que seja "
     "só parte do pedido. NUNCA chute ou invente um fato que você não tem como saber (nome de "
     "arquivo, detalhe de um projeto específico, API usada, etc.): nesses casos diga 'não sei, "
@@ -37,12 +43,43 @@ SISTEMA_LOCAL = (
     "nada."
 )
 SISTEMA_NUVEM = (
-    "Você é um modelo de IA grátis na nuvem, chamado pelo agente local{de_quem} "
+    "Você é um modelo de IA grátis na nuvem, chamado pelo Agente Local{de_quem} (um programa "
+    "que roda no PC da pessoa e não tem especialidade em nenhum tema) "
     "(via OmniRoute) quando o modelo local não soube responder sozinho. Responda em "
     "português do Brasil, direto e completo. Você não tem acesso a arquivos, código ou "
     "projetos da pessoa: se o pedido depender disso, responda a parte que der e termine, "
     "numa linha separada, com 'PRECISA DO CLAUDE PARA: ' seguido do que falta, em uma "
     "frase curta."
+)
+
+
+# "o que você pode fazer?", "quem é você?", "ajuda": resposta fixa, sem modelo nenhum
+# (o modelo pequeno inventava uma profissão para si mesmo).
+AJUDA = re.compile(
+    r"^(?:(?:oi|ola|e ai|bom dia|boa tarde|boa noite)\W*)?"
+    r"(?:ajuda|help|socorro|comandos"
+    r"|(?:o )?que (?:mais )?(?:voce|vc|tu) (?:pode|consegue|sabe|faz|e capaz de)"
+    r"(?: fazer)?(?: por mim| para mim| pra mim)?"
+    r"|(?:no )?que (?:voce|vc|tu) (?:pode|consegue) (?:me )?ajudar"
+    r"|como (?:voce|vc|tu) (?:pode|consegue) (?:me )?ajudar"
+    r"|quem (?:e|es) (?:voce|vc|tu)|(?:o )?que (?:e )?(?:voce|vc|tu)(?: e)?"
+    r"|para que (?:voce|vc|tu) serve|pra que (?:voce|vc|tu) serve"
+    r"|quais (?:sao )?(?:as )?suas (?:funcoes|habilidades|capacidades))"
+    r"\W*$"
+)
+TEXTO_AJUDA = (
+    "Sou o Agente Local{de_quem}: rodo aqui no seu PC, com IA local e grátis, para o Claude "
+    "gastar menos tokens. O que eu faço:\n"
+    "- Respondo perguntas rápidas, contas, traduções e resumos de texto colado.\n"
+    "- Leio fotos e prints (o clipe na conversa) e transcrevo documentos; junto imagens em "
+    "PDF.\n"
+    "- Nos seus projetos: rodo os testes, resumo o que mudou no git, reviso o código e acho "
+    "arquivos (ex.: \"roda os testes do agente-local\").\n"
+    "- Abro sites e programas, toco música e faço buscas (ex.: \"abre o YouTube\").\n"
+    "- Falo e ouço pelo microfone (Ctrl+Alt+F no PC, botão do microfone no celular).\n"
+    "- Quando o pedido é grande demais (código novo, análise longa), copio para o Claude e "
+    "aviso.\n"
+    "Para pausar tudo e liberar a placa de vídeo, use Desligar Agente."
 )
 
 
@@ -145,6 +182,8 @@ def triar(pedido: str, perguntar_ao_cerebro: Callable[[str], str] | None = None)
     frase = normalizar(pedido)
     if not frase:
         return Decisao("local", "vazio")
+    if AJUDA.match(frase):
+        return Decisao("ajuda", "pergunta o que o agente faz")
     if CONTA.match(pedido.strip()) and re.search(r"\d", pedido):
         return Decisao("conta", "conta simples")
     if interpretar(pedido).acao not in ("perguntar", "nada"):
@@ -251,6 +290,8 @@ def resolver(
     logger.info("porteiro: %s (%s)", decisao.destino, decisao.motivo)
     if decisao.destino == "claude":
         return Resultado("claude", encaminhar(pedido))
+    if decisao.destino == "ajuda":
+        return Resultado("comando", sistema(TEXTO_AJUDA, cfg))  # sem nota de modelo
     if decisao.destino == "conta":
         try:
             valor = calcular(pedido)

@@ -144,6 +144,12 @@ limites:
   ram_pct: 90
   vram_pct: 95
 
+# App do celular: abre o painel pelo Tailscale (rede privada grátis, só os seus aparelhos).
+# endereco: o nome do PC no Tailscale (rode "agente celular" para ver o passo a passo).
+celular:
+  ligado: false
+  endereco: ""             # ex.: meu-pc.tail1234.ts.net
+
 # Config compartilhada entre PCs por um HD externo: nome da pasta do HD ("" = não usa)
 hd_compartilhado: ""
 

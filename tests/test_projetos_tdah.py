@@ -229,7 +229,9 @@ def test_sem_ficha_usa_readme_e_lista_o_que_tem(tmp_path: Path) -> None:
 
 def test_status_sem_resumo_prefere_readme(cfg_tdah: Config) -> None:
     loja = cfg_tdah.pastas_permitidas[0] / "loja"
-    (loja / "STATUS.md").write_text("# Loja\n\nAtualizado em 2026-10-26.\n\nConcluído: 50%\n")
+    (loja / "STATUS.md").write_text(
+        "# Loja\n\nAtualizado em 2026-10-26.\n\nConcluído: 50%\n", encoding="utf-8"
+    )
     (loja / "README.md").write_text("# Loja\n\nSite de vendas.\n", encoding="utf-8")
     p = next(x for x in pt.escanear(cfg_tdah) if x["nome"] == "loja")
     assert p["resumo"] == "Site de vendas." and p["porcentagem"] == 50

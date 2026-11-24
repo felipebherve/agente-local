@@ -61,3 +61,20 @@ def repo(tmp_path: Path) -> Path:
     git(pasta, "add", "-A")
     git(pasta, "commit", "-q", "-m", "inicio")
     return pasta
+
+
+@pytest.fixture(autouse=True)
+def _dados_isolados(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """O estado real do PC (ex.: agente desligado no app) não vaza para os testes que
+    chamam as ferramentas MCP com a config de verdade."""
+    from dataclasses import replace
+
+    from agente import servidor_mcp
+
+    original = servidor_mcp._preparar
+
+    def preparar():  # type: ignore[no-untyped-def]
+        cfg_real, cliente = original()
+        return replace(cfg_real, pasta_dados=tmp_path / "dados-isolados"), cliente
+
+    monkeypatch.setattr(servidor_mcp, "_preparar", preparar)

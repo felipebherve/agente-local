@@ -82,6 +82,27 @@ class Config:
     ferramentas: Ferramentas = field(default_factory=lambda: Ferramentas())
     memoria: Memoria = field(default_factory=lambda: Memoria())
     omniroute: Omniroute = field(default_factory=lambda: Omniroute())
+    celular: Celular = field(default_factory=lambda: Celular())
+
+
+@dataclass(frozen=True)
+class Celular:
+    """Acesso ao painel pelo celular, só pela rede privada do Tailscale.
+
+    endereco: nome do PC no Tailscale (ex.: "meu-pc.tail1234.ts.net"); o painel só
+    aceita pedidos de fora do PC vindos desse nome, e só com o código de pareamento.
+    """
+
+    ligado: bool = False
+    endereco: str = ""
+
+
+def _ler_celular(bruto: Any) -> Celular:
+    if not isinstance(bruto, dict):
+        return Celular()
+    endereco = str(bruto.get("endereco") or "").strip().lower()
+    endereco = endereco.removeprefix("https://").removeprefix("http://").rstrip("/")
+    return Celular(ligado=bool(bruto.get("ligado", False)), endereco=endereco)
 
 
 @dataclass(frozen=True)
@@ -258,6 +279,7 @@ def carregar_config(caminho: Path | None = None) -> Config:
         ferramentas=_ler_ferramentas(bruto.get("ferramentas")),
         memoria=_ler_memoria(bruto.get("memoria"), pastas_permitidas),
         omniroute=_ler_omniroute(compartilhado.get("omniroute", bruto.get("omniroute"))),
+        celular=_ler_celular(bruto.get("celular")),
         limites=Limites(
             ram_pct=float((bruto.get("limites") or {}).get("ram_pct", 90)),
             vram_pct=float((bruto.get("limites") or {}).get("vram_pct", 95)),

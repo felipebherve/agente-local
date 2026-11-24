@@ -120,3 +120,34 @@ def test_mandar_ao_claude_com_dica_do_projeto(cfg, tmp_path):
     assert "Ctrl+V" in aviso and abertos == [1]
     assert copiado[0].startswith("melhora a narração do falavado")
     assert str(tmp_path / "falavado") in copiado[0]
+
+
+@pytest.mark.parametrize(
+    "pedido",
+    [
+        "O que você pode fazer por mim?",
+        "o que vc sabe fazer",
+        "Oi, quem é você?",
+        "ajuda",
+        "Como você pode me ajudar?",
+        "pra que você serve?",
+    ],
+)
+def test_pergunta_sobre_o_agente_tem_resposta_fixa_sem_modelo(cfg, pedido):
+    cerebro = Cerebro()
+    r = porteiro.resolver(cfg, cerebro, pedido)
+    assert r.destino == "comando"  # o Maestro não põe "(liguei o Porteiro...)"
+    assert r.resposta.startswith("Sou o Agente Local")
+    assert "testes" in r.resposta and "fotos" in r.resposta
+    assert cerebro.perguntas == []  # nenhum modelo inventa uma profissão
+
+
+def test_o_que_e_algo_continua_indo_ao_modelo():
+    assert triar("o que é uma API?").destino == "local"
+    assert triar("o que você acha de python?").destino != "ajuda"
+
+
+def test_prompts_dizem_quem_e_o_agente(cfg):
+    local = porteiro.sistema(porteiro.SISTEMA_LOCAL, cfg)
+    assert "Agente Local" in local and "NÃO tem outra especialidade" in local
+    assert "Agente Local" in porteiro.sistema(porteiro.SISTEMA_NUVEM, cfg)
