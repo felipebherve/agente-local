@@ -25,13 +25,21 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from agente import atividade, economia, historico
+from agente import atividade, celular, economia, historico, interruptor
 from agente.config import Config, carregar_config
 
 logger = logging.getLogger(__name__)
 
 PORTA_PADRAO = 8899
 PASTA_WEB = Path(__file__).resolve().parent / "web_painel"
+PASTA_ICONES = Path(__file__).resolve().parent / "icones"
+# Servidos também para o celular antes de parear (não têm nada pessoal).
+ARQUIVOS_PUBLICOS: dict[str, tuple[Path, str]] = {
+    "/manifest.webmanifest": (PASTA_WEB / "manifest.webmanifest", "application/manifest+json"),
+    "/sw.js": (PASTA_WEB / "sw.js", "text/javascript; charset=utf-8"),
+    "/icone-192.png": (PASTA_ICONES / "app-192.png", "image/png"),
+    "/icone-512.png": (PASTA_ICONES / "app-512.png", "image/png"),
+}
 TIMEOUT_SONDA_S = 1.5
 
 # Agentes que dá pra ligar e desligar no painel e o arquivo de pausa de cada um
@@ -342,19 +350,76 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(dados)
 
-    def _de_fora(self) -> bool:
-        """True se o pedido não veio do próprio painel.
-
-        Bloqueia outro site aberto no navegador (CSRF) e nomes falsos apontando para
-        127.0.0.1 (DNS rebinding): o Host tem de ser o do painel e, se o navegador mandar
-        Origin, ela também.
-        """
+    def _locais(self) -> set[str]:
         porta = int(getattr(self.server, "server_port", 0))
-        locais = {f"127.0.0.1:{porta}", f"localhost:{porta}"}
-        if self.headers.get("Host", "") not in locais:
+        return {f"127.0.0.1:{porta}", f"localhost:{porta}"}
+
+    def _remoto(self) -> bool:
+        """True se o pedido veio de fora do PC (o `tailscale serve` marca os cabeçalhos)."""
+        h = self.headers
+        if any(h.get(n) for n in ("X-Forwarded-For", "X-Forwarded-Host", "Tailscale-User-Login")):
+            return True
+        return h.get("Host", "") not in self._locais()
+
+    def _host_remoto_ok(self) -> bool:
+        """Só o endereço do PC no Tailscale, configurado em celular.endereco, entra."""
+        cel = self.cfg.celular
+        if not (cel.ligado and cel.endereco):
+            return False
+        host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host", "")).lower()
+        if host.removesuffix(":443") != cel.endereco:
+            return False
+        origem = self.headers.get("Origin")
+        return origem is None or origem.lower() == f"https://{cel.endereco}"
+
+    def _sessao(self) -> str:
+        for parte in self.headers.get("Cookie", "").split(";"):
+            nome, _, valor = parte.strip().partition("=")
+            if nome == celular.COOKIE:
+                return valor
+        return ""
+
+    def _de_fora(self) -> bool:
+        """True se o pedido deve ser recusado.
+
+        No PC: bloqueia outro site aberto no navegador (CSRF) e nomes falsos apontando
+        para 127.0.0.1 (DNS rebinding): o Host tem de ser o do painel e, se o navegador
+        mandar Origin, ela também. Pelo celular: só o endereço do Tailscale configurado e
+        com o cookie do pareamento.
+        """
+        if self._remoto():
+            return not (self._host_remoto_ok() and celular.sessao_valida(self.cfg, self._sessao()))
+        if self.headers.get("Host", "") not in self._locais():
             return True
         origem = self.headers.get("Origin")
-        return origem is not None and origem not in {f"http://{h}" for h in locais}
+        return origem is not None and origem not in {f"http://{h}" for h in self._locais()}
+
+    def _publico(self) -> bool:
+        """Arquivos que o celular pode baixar antes de parear (tela do código e ícones)."""
+        if not self._remoto():
+            return False
+        return self._host_remoto_ok() and self.path.split("?")[0] in ARQUIVOS_PUBLICOS
+
+    def _parear(self) -> None:
+        try:
+            codigo = str(self._ler_corpo().get("codigo", ""))
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
+            codigo = ""
+        sessao = celular.parear(self.cfg, codigo)
+        if not sessao:
+            self._enviar_json({"erro": "código errado"}, 403)
+            return
+        dados = b'{"ok": true}'
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(dados)))
+        self.send_header(
+            "Set-Cookie",
+            f"{celular.COOKIE}={sessao}; Path=/; Max-Age=31536000; "
+            "HttpOnly; Secure; SameSite=Strict",
+        )
+        self.end_headers()
+        self.wfile.write(dados)
 
     def _ler_corpo(self) -> dict[str, Any]:
         tamanho = int(self.headers.get("Content-Length", "0"))
@@ -365,7 +430,15 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - nome exigido pelo http.server
         cfg = self.cfg
+        caminho = self.path.split("?")[0]
+        if caminho in ARQUIVOS_PUBLICOS and (self._publico() or not self._de_fora()):
+            arquivo, tipo = ARQUIVOS_PUBLICOS[caminho]
+            self._enviar_arquivo(arquivo, tipo)
+            return
         if self._de_fora():
+            if self._remoto() and self._host_remoto_ok() and caminho in ("/", "/index.html"):
+                self._enviar_arquivo(PASTA_WEB / "parear.html", "text/html; charset=utf-8")
+                return
             self.send_error(403)
             return
         if self.path in ("/", "/index.html"):
@@ -377,6 +450,7 @@ class _Handler(BaseHTTPRequestHandler):
                     "recursos": recursos_agora(),
                     "servicos": servicos(cfg),
                     "agentes": estado_agentes(cfg),
+                    "desligado": interruptor.desligado(cfg),
                     "voz_gravando": voz_gravando(),
                     "tokens_poupados": economia.total(cfg),
                     "omniroute_uso": [
@@ -411,16 +485,40 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         tipo = self.headers.get("Content-Type", "").split(";")[0].strip()
-        if self._de_fora() or tipo != "application/json":
+        if tipo != "application/json":
             # formulário de outro site não consegue mandar application/json sem permissão
             self.send_error(403)
+            return
+        if self.path == "/api/parear" and self._remoto() and self._host_remoto_ok():
+            self._parear()
+            return
+        if self._de_fora():
+            self.send_error(403)
+            return
+        if self._remoto() and (self.path.startswith("/api/config/") or self.path == "/api/voz"):
+            # pelo celular não dá para mudar pastas liberadas, logins nem ligar o microfone
+            self._enviar_json({"erro": "isso só pode ser feito no computador"}, 403)
             return
         try:
             corpo = self._ler_corpo()
         except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
             self._enviar_json({"erro": "pedido inválido"}, 400)
             return
-        if self.path == "/api/perguntar":
+        if self.path == "/api/acordar":
+            interruptor.acordar(self.cfg)
+            self._enviar_json({"desligado": False})
+        elif self.path == "/api/desligar":
+            interruptor.desligar(self.cfg)
+            self._enviar_json({"desligado": True})
+        elif self.path == "/api/perguntar" and interruptor.desligado(self.cfg):
+            self._enviar_json(
+                {
+                    "agente": "Agente",
+                    "destino": "comando",
+                    "resposta": "O agente está desligado. Toque em Acordar Agente para ligar.",
+                }
+            )
+        elif self.path == "/api/perguntar":
             mensagem = str(corpo.get("mensagem", "")).strip()
             if not mensagem:
                 self._enviar_json({"erro": "mensagem vazia"}, 400)
@@ -612,11 +710,20 @@ def no_ar(porta: int = PORTA_PADRAO) -> bool:
         return False
 
 
+def criar_servidor(cfg: Config, porta: int = PORTA_PADRAO) -> ThreadingHTTPServer:
+    """Servidor do painel, sempre só em 127.0.0.1 (o celular chega pelo tailscale serve).
+
+    O agente começa desligado: quem liga é o botão "Acordar Agente".
+    """
+    interruptor.desligar(cfg)
+    handler = type("Handler", (_Handler,), {"cfg": cfg})
+    return ThreadingHTTPServer(("127.0.0.1", porta), handler)
+
+
 def servir(cfg: Config | None = None, porta: int = PORTA_PADRAO, abrir: bool = True) -> None:
     """Sobe o painel e (opcional) já abre o navegador padrão. Bloqueia a thread atual."""
     cfg = cfg or carregar_config()
-    handler = type("Handler", (_Handler,), {"cfg": cfg})
-    servidor = ThreadingHTTPServer(("127.0.0.1", porta), handler)
+    servidor = criar_servidor(cfg, porta)
     if cfg.voz.atalho:
         ligar_atalho_voz(cfg.voz.atalho)
     from agente import projetos_tdah

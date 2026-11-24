@@ -212,6 +212,44 @@ def cmd_economia(cfg: Config, _cliente: ClienteOllama, _: argparse.Namespace) ->
     return 0
 
 
+def cmd_desligar_agente(cfg: Config, cliente: ClienteOllama, _: argparse.Namespace) -> int:
+    from agente import interruptor
+
+    interruptor.desligar(cfg, cliente)
+    print("Agente desligado: agentes pausados, Braço parado e placa de vídeo livre.")
+    return 0
+
+
+def cmd_acordar_agente(cfg: Config, _cliente: ClienteOllama, _: argparse.Namespace) -> int:
+    from agente import interruptor
+
+    interruptor.acordar(cfg)
+    print("Agente acordado.")
+    return 0
+
+
+def cmd_celular(cfg: Config, _cliente: ClienteOllama, args: argparse.Namespace) -> int:
+    from agente import celular, configuracoes
+    from agente.config import caminho_config
+    from agente.painel_web import PORTA_PADRAO
+
+    if args.novo_codigo:
+        celular.novo_codigo(cfg)
+        print("Código trocado: os celulares pareados antes precisam do código novo.")
+    if args.ligar or args.desligar:
+        from agente.config import _ler_celular
+
+        endereco = _ler_celular({"endereco": args.ligar}).endereco if args.ligar else ""
+        endereco = endereco or cfg.celular.endereco
+        configuracoes.trocar_bloco(
+            caminho_config(), "celular", {"ligado": bool(args.ligar), "endereco": endereco}
+        )
+        cfg = carregar_config()
+        print("Pronto. Reabra o app do agente para valer.")
+    print(celular.passo_a_passo(cfg, PORTA_PADRAO))
+    return 0
+
+
 def criar_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="agente", description="Agente de IA local e offline")
     sub = p.add_subparsers(dest="comando", required=True)
@@ -302,6 +340,18 @@ def criar_parser() -> argparse.ArgumentParser:
     sr.set_defaults(func=cmd_resumir)
 
     sub.add_parser("economia", help="tokens poupados até agora").set_defaults(func=cmd_economia)
+    sub.add_parser(
+        "desligar-agente", help="desliga o agente inteiro (igual ao botão do app)"
+    ).set_defaults(func=cmd_desligar_agente)
+    sub.add_parser(
+        "acordar-agente", help="acorda o agente (igual ao botão do app)"
+    ).set_defaults(func=cmd_acordar_agente)
+    scel = sub.add_parser("celular", help="app do celular pelo Tailscale: passo a passo e código")
+    grupo = scel.add_mutually_exclusive_group()
+    grupo.add_argument("--ligar", metavar="ENDERECO", help="nome do PC no Tailscale (….ts.net)")
+    grupo.add_argument("--desligar", action="store_true", help="o painel volta a abrir só no PC")
+    scel.add_argument("--novo-codigo", action="store_true", help="troca o código de pareamento")
+    scel.set_defaults(func=cmd_celular)
     return p
 
 

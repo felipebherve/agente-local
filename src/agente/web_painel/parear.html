@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agente Local</title>
+<link rel="icon" href="/icone-192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icone-192.png">
+<meta name="theme-color" content="#1b1b2f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0e0f14; color: #e8eaed;
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 16px; box-sizing: border-box; }
+  main { width: min(380px, 100%); text-align: center; }
+  img { width: 96px; height: 96px; border-radius: 22px; }
+  h1 { font-size: 22px; margin: 16px 0 4px; }
+  p { color: #a3abb7; margin: 0 0 20px; }
+  input { width: 100%; box-sizing: border-box; font: 600 24px ui-monospace, monospace; letter-spacing: .15em; text-align: center;
+          text-transform: uppercase; padding: 12px; border-radius: 12px; border: 1px solid #2a2f37; background: #16191e; color: inherit; }
+  button { margin-top: 12px; width: 100%; padding: 14px; border: 0; border-radius: 12px; font: 600 17px system-ui, sans-serif;
+           background: linear-gradient(135deg, #8b5cf6, #22c55e); color: #fff; cursor: pointer; }
+  #erro { color: #ff8a8a; min-height: 24px; margin-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <img src="/icone-192.png" alt="">
+  <h1>Agente Local</h1>
+  <p>Digite o código de pareamento. No computador, rode <b>agente celular</b> para ver o código.</p>
+  <form id="f">
+    <input id="codigo" autocomplete="one-time-code" inputmode="text" maxlength="9" placeholder="XXXX-XXXX" required>
+    <button type="submit">Entrar</button>
+  </form>
+  <div id="erro" role="alert"></div>
+</main>
+<script>
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+document.getElementById("f").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const erro = document.getElementById("erro");
+  erro.textContent = "";
+  try {
+    const r = await fetch("/api/parear", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ codigo: document.getElementById("codigo").value }) });
+    if (r.ok) { location.replace("/"); return; }
+    erro.textContent = "Código errado. Confira no computador e tente de novo.";
+  } catch (e) { erro.textContent = "Sem conexão com o PC."; }
+};
+</script>
+</body>
+</html>

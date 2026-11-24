@@ -8,7 +8,7 @@ from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
 
-from agente import atividade, economia, git_ops, pr, recursos, resumos, testes
+from agente import atividade, economia, git_ops, interruptor, pr, recursos, resumos, testes
 from agente.config import Config, ErroConfig, carregar_config
 from agente.executor import ConfirmacaoNecessaria, ErroExecucao
 from agente.llm import ClienteOllama, ErroOllama
@@ -59,6 +59,8 @@ def _seguro(acao: Callable[[Config, ClienteOllama], str], agente: str = "Cérebr
     """
     try:
         cfg, cliente = _preparar()
+        if interruptor.desligado(cfg):
+            return interruptor.AVISO_MCP
         if not agente:
             return acao(cfg, cliente)
         # memória no limite: tira da placa os modelos parados antes de recusar a tarefa

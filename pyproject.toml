@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agente-local"
-version = "1.0.0"
+version = "1.1.0"
 license = "MIT"
 readme = "README.md"
 description = "Agente de IA local (Ollama + MCP) que faz o trabalho mecânico do Claude Code e economiza tokens"
@@ -35,6 +35,9 @@ voz = [
     "nvidia-cublas-cu12; sys_platform == 'win32'",
     "nvidia-cudnn-cu12>=9,<10; sys_platform == 'win32'",
 ]
+# Janela própria do app de desktop (no Windows usa o WebView2 do sistema). Sem ela o app
+# abre o painel no Chrome/Edge em modo app, que também é uma janela sem abas.
+app = ["pywebview>=5; sys_platform == 'win32'"]
 dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10", "types-PyYAML"]
 
 [project.scripts]
@@ -46,12 +49,14 @@ agente-mcp = "agente.servidor_mcp:main"
 agente-bandeja = "agente.bandeja:main"
 # abre o painel no navegador padrão (sem janela de console no Windows)
 agente-painel = "agente.painel_web:main"
+# app de desktop: janela própria com a logo e os botões Acordar/Desligar Agente
+agente-app = "agente.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-agente = ["icones/*.png", "icones/*.svg", "web_painel/*.html"]
+agente = ["icones/*.png", "icones/*.svg", "icones/*.ico", "web_painel/*.html", "web_painel/*.js", "web_painel/*.webmanifest"]
 
 [tool.ruff]
 line-length = 100

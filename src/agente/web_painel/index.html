@@ -4,7 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agente local</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233b6ef5'/%3E%3Cpath d='M9 21l7-11 7 11' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" href="/icone-192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icone-192.png">
+<meta name="theme-color" content="#1b1b2f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Agente Local">
 <style>
 :root {
   --escala: 1.2; /* tamanho da letra: Configurações > Tamanho da letra */
@@ -36,7 +41,7 @@ html, body { margin: 0; height: 100%; }
 body {
   background: var(--bg); color: var(--texto);
   font: calc(14px * var(--escala))/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
-  display: grid; grid-template-rows: auto 1fr; height: 100vh; overflow: hidden;
+  display: grid; grid-template-rows: auto auto 1fr; height: 100vh; overflow: hidden;
 }
 button { font: inherit; color: inherit; cursor: pointer; }
 header {
@@ -148,6 +153,11 @@ form.compositor textarea:focus { outline: 2px solid var(--acento); outline-offse
 }
 .btn.primario { background: var(--acento); border-color: var(--acento); color: var(--sobre-acento); }
 .btn:disabled { opacity: .5; cursor: default; }
+.btn.interruptor { height: 36px; padding: 0 16px; font-weight: 600; border-radius: 999px; }
+.btn.interruptor.acordar { background: var(--ok); border-color: var(--ok); color: #fff; }
+.btn.interruptor.desligar { background: transparent; border-color: var(--erro); color: var(--erro); }
+.aviso-desligado { height: 0; overflow: hidden; padding: 0 20px; background: var(--painel-2); color: var(--texto-2); }
+body.desligado .aviso-desligado { height: auto; padding: 10px 20px; border-bottom: 1px solid var(--borda); }
 .btn.mic { width: 42px; padding: 0; display: grid; place-items: center; }
 .btn.mic.gravando { background: var(--erro); border-color: var(--erro); color: #fff; animation: pulso 1.4s infinite; }
 @keyframes pulso { 50% { box-shadow: 0 0 0 6px rgba(209,67,67,.18); } }
@@ -211,6 +221,7 @@ button.link { border: 0; background: none; color: var(--acento); padding: 0; fon
   body { height: auto; min-height: 100vh; overflow: visible; }
   .mensagens { min-height: 320px; }
   main { grid-template-columns: 1fr; padding: 12px 16px; }
+  main > aside { order: 2; } /* no celular a conversa vem primeiro */
   header { flex-wrap: wrap; padding: 10px 16px; }
   .chips { margin-left: 0; width: 100%; }
 }
@@ -233,9 +244,10 @@ dialog#dlgDetalhes::backdrop, dialog#dlgTdah::backdrop { background: rgba(0,0,0,
 <body>
 <header>
   <div class="marca">
-    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--acento)"/><path d="M9 21l7-11 7 11" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    Agente local
+    <img src="/icone-192.png" alt="" width="28" height="28" style="border-radius:7px">
+    Agente Local
   </div>
+  <button class="btn interruptor" id="btnInterruptor" type="button" disabled>…</button>
   <div class="chips">
     <span class="chip"><i class="ponto" id="ptOllama"></i>Ollama <span id="txOllama"></span></span>
     <span class="chip"><i class="ponto" id="ptOmni"></i>OmniRoute</span>
@@ -245,6 +257,7 @@ dialog#dlgDetalhes::backdrop, dialog#dlgTdah::backdrop { background: rgba(0,0,0,
     </button>
   </div>
 </header>
+<div class="aviso-desligado" id="avisoDesligado">O agente está desligado: nada roda e a placa de vídeo está livre. Toque em <b>Acordar Agente</b> para ligar.</div>
 
 <main>
   <aside>
@@ -546,12 +559,35 @@ async function atualizarEstado() {
     $("#txModelos").textContent = s.modelos_carregados.length ? "Na placa agora: " + s.modelos_carregados.join(", ") : "Nenhum modelo carregado na placa agora.";
     $("#txPoupados").textContent = mil(e.tokens_poupados);
     $("#ecoOmni").textContent = mil(e.omniroute_uso.reduce((a, p) => a + p.tokens, 0));
+    mostrarInterruptor(e.desligado);
     desenharAgentes(e.agentes);
     marcarMic(e.voz_gravando);
   } catch (err) {
     $("#ptOllama").className = "ponto erro";
   }
 }
+// Acordar Agente / Desligar Agente
+let desligado = true;
+function mostrarInterruptor(estaDesligado) {
+  desligado = !!estaDesligado;
+  const b = $("#btnInterruptor");
+  b.disabled = false;
+  b.textContent = desligado ? "Acordar Agente" : "Desligar Agente";
+  b.className = "btn interruptor " + (desligado ? "acordar" : "desligar");
+  document.body.classList.toggle("desligado", desligado);
+}
+$("#btnInterruptor").onclick = async () => {
+  const b = $("#btnInterruptor");
+  b.disabled = true;
+  b.textContent = desligado ? "Acordando…" : "Desligando…";
+  try { mostrarInterruptor((await api(desligado ? "/api/acordar" : "/api/desligar", {})).desligado); }
+  catch (err) { b.disabled = false; mostrarInterruptor(desligado); }
+  atualizarEstado();
+};
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+
 function desenharAgentes(agentes) {
   $("#listaAgentes").innerHTML = agentes.map((a) => `
     <div class="agente">

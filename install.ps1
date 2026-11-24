@@ -5,11 +5,12 @@
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1          # pergunta antes
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1 -Sim     # aceita tudo
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1 -Voz     # inclui a voz (Ctrl+Alt+F)
+#   powershell -ExecutionPolicy Bypass -File .\install.ps1 -Celular # painel sempre no ar
 #
 # O que faz: instala pelo winget o que faltar (Python, Git, Ollama e, se quiser, Node.js),
 # cria o ambiente do agente, instala o OmniRoute (opcional), roda "agente init" e cria os
-# atalhos "Agente local" na área de trabalho e no menu Iniciar.
-param([switch]$Sim, [switch]$Voz)
+# atalhos "Agente Local" (o app, com a logo) na área de trabalho e no menu Iniciar.
+param([switch]$Sim, [switch]$Voz, [switch]$Celular)
 $ErrorActionPreference = "Stop"
 Set-Location -Path $PSScriptRoot
 
@@ -60,9 +61,19 @@ Titulo "3/6 Ambiente do agente"
 if (-not (Test-Path ".venv")) { & $py[0] @pyResto -m venv .venv }
 $vpy = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
 & $vpy -m pip install -q --upgrade pip
-$extras = ""
-if ($Voz) { $extras = "[voz]" }
+$extras = "[app]"
+if ($Voz) { $extras = "[app,voz]" }
 & $vpy -m pip install -q -e ".$extras"
+# Caminhos absolutos ficam gravados na .venv: se a pasta mudou de lugar, refaz a .venv.
+$venvOk = $false
+try { & (Join-Path $PSScriptRoot ".venv\Scripts\agente.exe") --help *> $null; $venvOk = ($LASTEXITCODE -eq 0) } catch {}
+if (-not $venvOk) {
+    Aviso "A pasta mudou de lugar: recriando o ambiente do agente."
+    Remove-Item -Recurse -Force .venv
+    & $py[0] @pyResto -m venv .venv
+    & $vpy -m pip install -q --upgrade pip
+    & $vpy -m pip install -q -e ".$extras"
+}
 Write-Host "Agente instalado em $PSScriptRoot\.venv"
 
 Titulo "4/6 OmniRoute (opcional: IA grátis na nuvem entre o seu PC e o Claude)"
@@ -80,18 +91,34 @@ if ($Sim) { & $agente init --sim } else { & $agente init }
 Titulo "6/6 Atalhos"
 $shell = New-Object -ComObject WScript.Shell
 $painel = Join-Path $PSScriptRoot ".venv\Scripts\agente-painel.exe"
+$app = Join-Path $PSScriptRoot ".venv\Scripts\agente-app.exe"
+$icone = Join-Path $PSScriptRoot "src\agente\icones\app.ico"
 $destinos = @(
     [Environment]::GetFolderPath("Desktop"),
     (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs")
 )
 foreach ($pasta in $destinos) {
-    $lnk = $shell.CreateShortcut((Join-Path $pasta "Agente local.lnk"))
-    $lnk.TargetPath = $painel
+    $lnk = $shell.CreateShortcut((Join-Path $pasta "Agente Local.lnk"))
+    $lnk.TargetPath = $app
     $lnk.WorkingDirectory = $PSScriptRoot
-    $lnk.Description = "Abre o painel do agente no navegador"
+    $lnk.IconLocation = $icone
+    $lnk.Description = "App do agente: Acordar e Desligar Agente"
     $lnk.Save()
 }
-Write-Host "Atalho 'Agente local' criado na área de trabalho e no menu Iniciar."
+Write-Host "Atalho 'Agente Local' criado na área de trabalho e no menu Iniciar."
+
+if ($Celular) {
+    # Painel sempre no ar (leve, o agente começa desligado) para o celular poder acordar.
+    $inicio = [Environment]::GetFolderPath("Startup")
+    $lnk = $shell.CreateShortcut((Join-Path $inicio "Agente Local - celular.lnk"))
+    $lnk.TargetPath = $painel
+    $lnk.Arguments = "--sem-navegador"
+    $lnk.WorkingDirectory = $PSScriptRoot
+    $lnk.IconLocation = $icone
+    $lnk.Save()
+    Start-Process -FilePath $painel -ArgumentList "--sem-navegador" -WorkingDirectory $PSScriptRoot
+    Write-Host "Painel sempre no ar para o celular. Passo a passo: .venv\Scripts\agente.exe celular"
+}
 
 if ($Voz) {
     # Atalho de teclado do Windows: um .lnk no menu Iniciar com tecla de atalho.
@@ -108,7 +135,9 @@ if ($Voz) {
 
 Titulo "Pronto"
 Write-Host "- Abra o Claude Code: ele já chama o agente sozinho."
-Write-Host "- Painel: atalho 'Agente local' na área de trabalho."
+Write-Host "- App: atalho 'Agente Local' na área de trabalho. Ele abre com o agente"
+Write-Host "  desligado: clique em 'Acordar Agente'."
+Write-Host "- Celular: rode .venv\Scripts\agente.exe celular e siga o passo a passo."
 Write-Host "- Algo estranho? Rode: .venv\Scripts\agente.exe doctor"
-Write-Host "- Desinstalar: apague esta pasta e os atalhos 'Agente local', e tire o bloco"
+Write-Host "- Desinstalar: apague esta pasta e os atalhos 'Agente Local', e tire o bloco"
 Write-Host "  'agente-local' de %USERPROFILE%\.claude.json e de %USERPROFILE%\.claude\CLAUDE.md."
