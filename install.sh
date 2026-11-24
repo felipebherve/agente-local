@@ -159,15 +159,25 @@ if [ "$VOZ" = 1 ] && command -v gsettings >/dev/null \
     ESQUEMA=org.gnome.settings-daemon.plugins.media-keys
     LISTA=$(gsettings get $ESQUEMA custom-keybindings)
     CAM="$BASE/agente-voz/"
-    # Já tem outro atalho com Ctrl+Alt+F (ex.: um feito à mão)? Então não cria outro igual.
+    # Já tem outro atalho de voz (Ctrl+Alt+F, ou um que chama o agente-voz)? Reaproveita.
+    # (o grep tira só os caminhos da lista: "['/org/.../custom0/', ...]")
     JA_TEM=""
-    for item in $(echo "$LISTA" | tr -d "[],'@as"); do
+    for item in $(echo "$LISTA" | grep -o "/[^']*/"); do
         [ "$item" = "$CAM" ] && continue
-        if [ "$(gsettings get "$ESQUEMA.custom-keybinding:$item" binding 2>/dev/null)" = "'<Control><Alt>f'" ]; then
+        B=$(gsettings get "$ESQUEMA.custom-keybinding:$item" binding 2>/dev/null \
+            | tr '[:upper:]' '[:lower:]' | sed 's/<primary>/<control>/g; s/<ctrl>/<control>/g')
+        C=$(gsettings get "$ESQUEMA.custom-keybinding:$item" command 2>/dev/null)
+        if [ "$B" = "'<control><alt>f'" ] || [ "$B" = "'<alt><control>f'" ] \
+            || [[ "$C" == *agente-voz* || "$C" == *atalho_voz* ]]; then
             JA_TEM="$item"
         fi
     done
     if [ -n "$JA_TEM" ]; then
+        if [[ "$LISTA" == *"$CAM"* ]]; then  # tira o atalho repetido de uma instalação antiga
+            NOVA=$(echo "$LISTA" | sed "s#, '$CAM'##; s#'$CAM', ##; s#'$CAM'##")
+            gsettings set $ESQUEMA custom-keybindings "$NOVA"
+            gsettings reset-recursively "$ESQUEMA.custom-keybinding:$CAM" 2>/dev/null || true
+        fi
         echo "Voz: o Ctrl+Alt+F já tem um atalho no GNOME ($JA_TEM); deixei como está."
     else
         if [[ "$LISTA" != *"$CAM"* ]]; then

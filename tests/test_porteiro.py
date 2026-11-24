@@ -136,7 +136,7 @@ def test_mandar_ao_claude_com_dica_do_projeto(cfg, tmp_path):
 def test_pergunta_sobre_o_agente_tem_resposta_fixa_sem_modelo(cfg, pedido):
     cerebro = Cerebro()
     r = porteiro.resolver(cfg, cerebro, pedido)
-    assert r.destino == "local"
+    assert r.destino == "comando"  # o Maestro não põe "(liguei o Porteiro...)"
     assert r.resposta.startswith("Sou o Agente Local")
     assert "testes" in r.resposta and "fotos" in r.resposta
     assert cerebro.perguntas == []  # nenhum modelo inventa uma profissão

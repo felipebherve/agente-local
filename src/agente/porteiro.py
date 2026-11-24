@@ -291,7 +291,7 @@ def resolver(
     if decisao.destino == "claude":
         return Resultado("claude", encaminhar(pedido))
     if decisao.destino == "ajuda":
-        return Resultado("local", sistema(TEXTO_AJUDA, cfg))
+        return Resultado("comando", sistema(TEXTO_AJUDA, cfg))  # sem nota de modelo
     if decisao.destino == "conta":
         try:
             valor = calcular(pedido)
