@@ -19,6 +19,9 @@ AppPublisher=Agente Local
 AppPublisherURL=https://github.com/felipebherve/agente-local
 DefaultDirName={userdocs}\Agente Local
 DisableProgramGroupPage=yes
+; a pessoa sempre escolhe a pasta (padrão: Documentos\Agente Local), até ao atualizar
+DisableDirPage=no
+UsePreviousAppDir=yes
 PrivilegesRequired=lowest
 OutputDir=..\..\dist
 OutputBaseFilename=AgenteLocal-Setup-Windows
